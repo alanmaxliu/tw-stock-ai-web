@@ -4,6 +4,7 @@ const state = {
   lastReport: "",
   lastSymbol: "",
   lastTimestamp: "",
+  recentSymbols: ["0050", "2330", "2454", "2412"],
 };
 
 const form = $("#analysis-form");
@@ -14,11 +15,23 @@ const canvas = $("#price-chart");
 const ctx = canvas.getContext("2d");
 const downloadReportButton = $("#download-report");
 const downloadChartButton = $("#download-chart");
+const recentSymbols = $("#recent-symbols");
+const root = document.documentElement;
+
+const storageKeys = {
+  theme: "twStockAiTheme",
+  recentSymbols: "twStockAiRecentSymbols",
+};
 
 function normalizeSymbol(rawSymbol) {
   const value = rawSymbol.trim().toUpperCase();
   if (/^\d+$/.test(value)) return `${value}.TW`;
   return value;
+}
+
+function plainTaiwanCode(rawSymbol) {
+  const value = rawSymbol.trim().toUpperCase().replace(/\.TW$/, "");
+  return /^\d+$/.test(value) ? value : "";
 }
 
 function setStatus(message) {
@@ -40,7 +53,24 @@ function yahooChartUrl(symbol) {
   return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?${params.toString()}`;
 }
 
-async function fetchBars(symbol) {
+function twseMonthUrl(code, date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${year}${month}01&stockNo=${code}`;
+}
+
+function parseTwseNumber(value) {
+  if (typeof value !== "string") return Number.NaN;
+  return Number(value.replaceAll(",", "").replaceAll("--", "").trim());
+}
+
+function parseTwseDate(value) {
+  const parts = value.split("/").map((part) => Number(part));
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) return null;
+  return new Date(parts[0] + 1911, parts[1] - 1, parts[2]);
+}
+
+async function fetchYahooBars(symbol) {
   const response = await fetch(yahooChartUrl(symbol), { cache: "no-store" });
   if (!response.ok) throw new Error(`資料來源回應失敗：HTTP ${response.status}`);
   const payload = await response.json();
@@ -66,7 +96,61 @@ async function fetchBars(symbol) {
     });
   }
   if (bars.length < 150) throw new Error(`資料筆數不足，目前只有 ${bars.length} 筆。`);
-  return bars;
+  return { bars, source: "Yahoo Finance" };
+}
+
+function recentMonthStarts(count) {
+  const output = [];
+  const current = new Date();
+  current.setDate(1);
+  for (let index = 0; index < count; index += 1) {
+    output.push(new Date(current.getFullYear(), current.getMonth() - index, 1));
+  }
+  return output;
+}
+
+async function fetchTwseBars(code) {
+  if (!code) throw new Error("TWSE 備援資料源只支援台股數字代號。");
+  const requests = recentMonthStarts(14).map(async (date) => {
+    const response = await fetch(twseMonthUrl(code, date), { cache: "no-store" });
+    if (!response.ok) throw new Error(`TWSE HTTP ${response.status}`);
+    return response.json();
+  });
+  const payloads = await Promise.all(requests);
+  const bars = [];
+  for (const payload of payloads) {
+    if (!Array.isArray(payload.data)) continue;
+    for (const row of payload.data) {
+      const date = parseTwseDate(row[0]);
+      const open = parseTwseNumber(row[3]);
+      const high = parseTwseNumber(row[4]);
+      const low = parseTwseNumber(row[5]);
+      const close = parseTwseNumber(row[6]);
+      const volume = parseTwseNumber(row[1]);
+      if (!date || ![open, high, low, close].every(Number.isFinite)) continue;
+      bars.push({ date, open, high, low, close, volume: Number.isFinite(volume) ? volume : 0 });
+    }
+  }
+  const unique = new Map();
+  for (const bar of bars) unique.set(bar.date.toISOString().slice(0, 10), bar);
+  const sorted = Array.from(unique.values()).sort((a, b) => a.date - b.date);
+  if (sorted.length < 150) throw new Error(`TWSE 資料筆數不足，目前只有 ${sorted.length} 筆。`);
+  return { bars: sorted.slice(-260), source: "TWSE 月資料 API" };
+}
+
+async function fetchBars(symbol, rawSymbol) {
+  const errors = [];
+  try {
+    return await fetchYahooBars(symbol);
+  } catch (error) {
+    errors.push(`Yahoo Finance：${error.message}`);
+  }
+  try {
+    return await fetchTwseBars(plainTaiwanCode(rawSymbol));
+  } catch (error) {
+    errors.push(`TWSE：${error.message}`);
+  }
+  throw new Error(errors.join("\n"));
 }
 
 function mean(values) {
@@ -288,7 +372,7 @@ function scoreAnalysis(metrics, probability) {
   return { score, signal, action, reasons, risks };
 }
 
-function analyzeBars(symbol, bars, probability) {
+function analyzeBars(symbol, bars, probability, source) {
   const closes = bars.map((bar) => bar.close);
   const highs = bars.map((bar) => bar.high);
   const lows = bars.map((bar) => bar.low);
@@ -321,6 +405,7 @@ function analyzeBars(symbol, bars, probability) {
     resistance20: Math.max(...highs.slice(-20)),
     resistance60: Math.max(...highs.slice(-60)),
     probability,
+    source,
   };
   return { ...metrics, ...scoreAnalysis(metrics, probability), bars };
 }
@@ -406,6 +491,7 @@ function buildReport(analysis) {
 - 技術分數：${analysis.score}/100
 - AI 未來 20 個交易日上漲機率：${formatNumber(analysis.probability, 1)}%
 - 行動參考：${analysis.action}
+- 資料來源：${analysis.source}
 
 價格與趨勢
 - 最新收盤：${formatNumber(analysis.current)}
@@ -437,7 +523,9 @@ function updateUi(analysis) {
   $("#probability-label").textContent = `${formatNumber(analysis.probability, 1)}%`;
   $("#score-label").textContent = `${analysis.score}/100`;
   $("#price-label").textContent = formatNumber(analysis.current);
+  $("#source-label").textContent = analysis.source;
   $("#analysis-text").textContent = `最新交易日：${analysis.date.toLocaleDateString("zh-TW")}
+資料來源：${analysis.source}
 MA20 / MA60 / MA120：${formatNumber(analysis.ma20)} / ${formatNumber(analysis.ma60)} / ${formatNumber(analysis.ma120)}
 RSI14：${formatNumber(analysis.rsi14, 1)}
 MACD Histogram：${formatNumber(analysis.macdHist, 3)}
@@ -468,40 +556,88 @@ function timestampName() {
   return new Date().toISOString().replaceAll(":", "").replaceAll("-", "").slice(0, 15);
 }
 
+function loadRecentSymbols() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKeys.recentSymbols));
+    if (Array.isArray(saved) && saved.length > 0) {
+      state.recentSymbols = saved.filter((item) => typeof item === "string").slice(0, 4);
+    }
+  } catch {
+    state.recentSymbols = ["0050", "2330", "2454", "2412"];
+  }
+}
+
+function saveRecentSymbol(rawSymbol) {
+  const code = plainTaiwanCode(rawSymbol) || rawSymbol.trim().toUpperCase();
+  if (!code) return;
+  state.recentSymbols = [code, ...state.recentSymbols.filter((item) => item !== code)].slice(0, 4);
+  localStorage.setItem(storageKeys.recentSymbols, JSON.stringify(state.recentSymbols));
+  renderRecentSymbols();
+}
+
+function renderRecentSymbols() {
+  recentSymbols.innerHTML = "";
+  for (const symbol of state.recentSymbols) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.symbol = symbol;
+    button.textContent = symbol;
+    button.title = `快速填入最近搜尋：${symbol}`;
+    button.addEventListener("click", () => {
+      symbolInput.value = symbol;
+    });
+    recentSymbols.appendChild(button);
+  }
+}
+
+function applyTheme(choice) {
+  const theme = ["system", "light", "dark"].includes(choice) ? choice : "system";
+  if (theme === "system") root.removeAttribute("data-theme");
+  else root.dataset.theme = theme;
+  localStorage.setItem(storageKeys.theme, theme);
+  document.querySelectorAll("[data-theme-choice]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.themeChoice === theme));
+  });
+}
+
+function initTheme() {
+  const saved = localStorage.getItem(storageKeys.theme) || "system";
+  applyTheme(saved);
+  document.querySelectorAll("[data-theme-choice]").forEach((button) => {
+    button.addEventListener("click", () => applyTheme(button.dataset.themeChoice));
+  });
+}
+
 async function runAnalysis(event) {
   event.preventDefault();
+  const rawSymbol = symbolInput.value;
   const symbol = normalizeSymbol(symbolInput.value);
   state.lastSymbol = symbol;
   analyzeButton.disabled = true;
   downloadReportButton.disabled = true;
   downloadChartButton.disabled = true;
   try {
-    setStatus(`讀取 ${symbol} 行情資料。`);
-    const bars = await fetchBars(symbol);
+    setStatus(`讀取 ${symbol} 行情資料。若 Yahoo Finance 被跨網域限制擋住，會自動改用 TWSE 月資料 API。`);
+    const { bars, source } = await fetchBars(symbol, rawSymbol);
     setStatus("訓練 TensorFlow.js 模型並計算技術指標。");
     const probability = await trainProbabilityModel(bars);
-    const analysis = analyzeBars(symbol, bars, probability);
+    const analysis = analyzeBars(symbol, bars, probability, source);
     drawChart(analysis);
     updateUi(analysis);
     state.lastTimestamp = timestampName();
     state.lastReport = buildReport(analysis);
     downloadReportButton.disabled = false;
     downloadChartButton.disabled = false;
-    setStatus(`分析完成：${analysis.signal}，AI 上漲機率 ${formatNumber(analysis.probability, 1)}%。`);
+    saveRecentSymbol(rawSymbol);
+    setStatus(`分析完成：${analysis.signal}，AI 上漲機率 ${formatNumber(analysis.probability, 1)}%。\n資料來源：${source}`);
   } catch (error) {
-    setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 確認股票代號、網路連線，或資料來源是否允許 GitHub Pages 跨網域讀取。`);
+    setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 請先確認股票代號是否為上市台股數字代號。若 Yahoo 與 TWSE 都被瀏覽器跨網域政策擋住，GitHub Pages 純前端無法繞過，需要改用 Cloudflare Workers、Vercel Functions 或 GitHub Actions 產生資料檔。`);
   } finally {
     analyzeButton.disabled = false;
   }
 }
 
 form.addEventListener("submit", runAnalysis);
-
-document.querySelectorAll("[data-symbol]").forEach((button) => {
-  button.addEventListener("click", () => {
-    symbolInput.value = button.dataset.symbol;
-  });
-});
 
 downloadReportButton.addEventListener("click", () => {
   downloadBlob(`${state.lastSymbol}_${state.lastTimestamp}_analysis.md`, "text/markdown;charset=utf-8", state.lastReport);
@@ -519,6 +655,10 @@ downloadChartButton.addEventListener("click", () => {
     URL.revokeObjectURL(url);
   }, "image/png");
 });
+
+initTheme();
+loadRecentSymbols();
+renderRecentSymbols();
 
 drawChart({
   symbol: "0050.TW",

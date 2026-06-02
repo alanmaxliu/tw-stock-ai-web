@@ -17,13 +17,23 @@
           <p class="subtitle">輸入股票代號後，在瀏覽器內抓取近一年日線資料，使用 TensorFlow.js 與技術指標產生投入觀察報告。</p>
         </div>
 
+        <div class="theme-control" aria-label="主題設定">
+          <span>畫面主題</span>
+          <div class="theme-buttons">
+            <button type="button" data-theme-choice="system">跟隨系統</button>
+            <button type="button" data-theme-choice="light">亮色</button>
+            <button type="button" data-theme-choice="dark">暗色</button>
+          </div>
+        </div>
+
         <form id="analysis-form" class="analysis-form">
           <label for="symbol-input">股票代號</label>
           <div class="input-row">
             <input id="symbol-input" name="symbol" type="text" inputmode="latin" value="0050" placeholder="例：0050、2330、2454" autocomplete="off" />
             <button id="analyze-button" type="submit">開始分析</button>
           </div>
-          <div class="quick-symbols" aria-label="快速代號">
+          <p class="field-hint">下方 4 個按鈕是「最近搜尋」快捷鍵，只會儲存在你自己的瀏覽器，不會上傳到雲端。</p>
+          <div class="quick-symbols" id="recent-symbols" aria-label="最近搜尋股票代號">
             <button type="button" data-symbol="0050">0050</button>
             <button type="button" data-symbol="2330">2330</button>
             <button type="button" data-symbol="2454">2454</button>
@@ -40,7 +50,7 @@
 
         <section class="notice">
           <h2>使用限制</h2>
-          <p>這是純前端工具，不會儲存你的查詢紀錄。GitHub Pages 無法保證所有資料源永遠可跨網域讀取；若資料源封鎖，頁面會顯示錯誤。分析結果只供研究參考，不是保證獲利建議。</p>
+          <p>這是純前端工具，不會把查詢紀錄存到雲端。資料會先嘗試 Yahoo Finance，失敗後改用 TWSE 月資料 API。GitHub Pages 不能直接執行後端爬蟲；若資料源封鎖跨網域讀取，頁面會顯示具體錯誤。分析結果只供研究參考，不是保證獲利建議。</p>
         </section>
       </section>
 
@@ -61,6 +71,10 @@
           <article class="metric-card">
             <span>最新收盤</span>
             <strong id="price-label">--</strong>
+          </article>
+          <article class="metric-card">
+            <span>資料來源</span>
+            <strong id="source-label">--</strong>
           </article>
         </div>
 
