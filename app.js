@@ -59,6 +59,10 @@ function twseMonthUrl(code, date) {
   return `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${year}${month}01&stockNo=${code}`;
 }
 
+function staticDataUrl(code) {
+  return `./data/stocks/${encodeURIComponent(code)}.json`;
+}
+
 function parseTwseNumber(value) {
   if (typeof value !== "string") return Number.NaN;
   return Number(value.replaceAll(",", "").replaceAll("--", "").trim());
@@ -97,6 +101,23 @@ async function fetchYahooBars(symbol) {
   }
   if (bars.length < 150) throw new Error(`資料筆數不足，目前只有 ${bars.length} 筆。`);
   return { bars, source: "Yahoo Finance" };
+}
+
+async function fetchStaticBars(code) {
+  if (!code) throw new Error("靜態資料只支援台股數字代號。");
+  const response = await fetch(staticDataUrl(code), { cache: "no-store" });
+  if (!response.ok) throw new Error(`靜態資料不存在：HTTP ${response.status}`);
+  const payload = await response.json();
+  const bars = (payload.bars || []).map((bar) => ({
+    date: new Date(`${bar.date}T00:00:00+08:00`),
+    open: Number(bar.open),
+    high: Number(bar.high),
+    low: Number(bar.low),
+    close: Number(bar.close),
+    volume: Number(bar.volume) || 0,
+  })).filter((bar) => [bar.open, bar.high, bar.low, bar.close].every(Number.isFinite));
+  if (bars.length < 150) throw new Error(`靜態資料筆數不足，目前只有 ${bars.length} 筆。`);
+  return { bars, source: payload.source || "GitHub Actions static JSON" };
 }
 
 function recentMonthStarts(count) {
@@ -140,13 +161,19 @@ async function fetchTwseBars(code) {
 
 async function fetchBars(symbol, rawSymbol) {
   const errors = [];
+  const code = plainTaiwanCode(rawSymbol);
+  try {
+    return await fetchStaticBars(code);
+  } catch (error) {
+    errors.push(`GitHub 靜態資料：${error.message}`);
+  }
   try {
     return await fetchYahooBars(symbol);
   } catch (error) {
     errors.push(`Yahoo Finance：${error.message}`);
   }
   try {
-    return await fetchTwseBars(plainTaiwanCode(rawSymbol));
+    return await fetchTwseBars(code);
   } catch (error) {
     errors.push(`TWSE：${error.message}`);
   }
@@ -617,7 +644,7 @@ async function runAnalysis(event) {
   downloadReportButton.disabled = true;
   downloadChartButton.disabled = true;
   try {
-    setStatus(`讀取 ${symbol} 行情資料。若 Yahoo Finance 被跨網域限制擋住，會自動改用 TWSE 月資料 API。`);
+    setStatus(`讀取 ${symbol} 行情資料。系統會優先讀取 GitHub Actions 產生的靜態 JSON；若沒有資料，才嘗試外部資料源。`);
     const { bars, source } = await fetchBars(symbol, rawSymbol);
     setStatus("訓練 TensorFlow.js 模型並計算技術指標。");
     const probability = await trainProbabilityModel(bars);
@@ -631,7 +658,7 @@ async function runAnalysis(event) {
     saveRecentSymbol(rawSymbol);
     setStatus(`分析完成：${analysis.signal}，AI 上漲機率 ${formatNumber(analysis.probability, 1)}%。\n資料來源：${source}`);
   } catch (error) {
-    setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 請先確認股票代號是否為上市台股數字代號。若 Yahoo 與 TWSE 都被瀏覽器跨網域政策擋住，GitHub Pages 純前端無法繞過，需要改用 Cloudflare Workers、Vercel Functions 或 GitHub Actions 產生資料檔。`);
+    setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 請確認 data/tracked-symbols.json 已包含此股票代號，並到 GitHub Actions 手動執行 Update stock data。若此代號沒有靜態 JSON，純前端仍會受外部資料源 CORS 限制。`);
   } finally {
     analyzeButton.disabled = false;
   }
