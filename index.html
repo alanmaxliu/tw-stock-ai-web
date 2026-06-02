@@ -29,16 +29,10 @@
         <form id="analysis-form" class="analysis-form">
           <label for="symbol-input">股票代號</label>
           <div class="input-row">
-            <input id="symbol-input" name="symbol" type="text" inputmode="latin" value="0050" placeholder="例：0050、2330、2454" autocomplete="off" />
+            <input id="symbol-input" name="symbol" type="text" inputmode="latin" placeholder="輸入單一台股代號" autocomplete="off" />
             <button id="analyze-button" type="submit">開始分析</button>
           </div>
-          <p class="field-hint">下方 4 個按鈕是「最近搜尋」快捷鍵，只會儲存在你自己的瀏覽器，不會上傳到雲端。</p>
-          <div class="quick-symbols" id="recent-symbols" aria-label="最近搜尋股票代號">
-            <button type="button" data-symbol="0050">0050</button>
-            <button type="button" data-symbol="2330">2330</button>
-            <button type="button" data-symbol="2454">2454</button>
-            <button type="button" data-symbol="2412">2412</button>
-          </div>
+          <p class="field-hint">一次分析一個股票代號。此網頁不會儲存你的查詢紀錄。</p>
         </form>
 
         <div class="status-box" id="status-box">等待輸入股票代號。</div>

@@ -13,6 +13,8 @@
   --soft-ink: #134e4a;
   --chip: #e7ebe9;
   --canvas: #ffffff;
+  --button-bg: #17202a;
+  --button-ink: #ffffff;
 }
 
 [data-theme="dark"] {
@@ -30,6 +32,8 @@
   --soft-ink: #b8fff2;
   --chip: #18343c;
   --canvas: #0c171d;
+  --button-bg: #5eead4;
+  --button-ink: #06201d;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -48,6 +52,8 @@
     --soft-ink: #b8fff2;
     --chip: #18343c;
     --canvas: #0c171d;
+    --button-bg: #5eead4;
+    --button-ink: #06201d;
   }
 }
 
@@ -192,8 +198,8 @@ input:focus {
 
 button {
   border: 0;
-  background: var(--ink);
-  color: #fff;
+  background: var(--button-bg);
+  color: var(--button-ink);
   padding: 12px 16px;
   cursor: pointer;
   font-weight: 700;
@@ -204,13 +210,6 @@ button:disabled {
   opacity: 0.45;
 }
 
-.quick-symbols {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.quick-symbols button,
 .download-row button {
   background: var(--chip);
   color: var(--ink);

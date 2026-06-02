@@ -4,7 +4,6 @@ const state = {
   lastReport: "",
   lastSymbol: "",
   lastTimestamp: "",
-  recentSymbols: ["0050", "2330", "2454", "2412"],
 };
 
 const form = $("#analysis-form");
@@ -15,12 +14,10 @@ const canvas = $("#price-chart");
 const ctx = canvas.getContext("2d");
 const downloadReportButton = $("#download-report");
 const downloadChartButton = $("#download-chart");
-const recentSymbols = $("#recent-symbols");
 const root = document.documentElement;
 
 const storageKeys = {
   theme: "twStockAiTheme",
-  recentSymbols: "twStockAiRecentSymbols",
 };
 
 function normalizeSymbol(rawSymbol) {
@@ -583,40 +580,6 @@ function timestampName() {
   return new Date().toISOString().replaceAll(":", "").replaceAll("-", "").slice(0, 15);
 }
 
-function loadRecentSymbols() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(storageKeys.recentSymbols));
-    if (Array.isArray(saved) && saved.length > 0) {
-      state.recentSymbols = saved.filter((item) => typeof item === "string").slice(0, 4);
-    }
-  } catch {
-    state.recentSymbols = ["0050", "2330", "2454", "2412"];
-  }
-}
-
-function saveRecentSymbol(rawSymbol) {
-  const code = plainTaiwanCode(rawSymbol) || rawSymbol.trim().toUpperCase();
-  if (!code) return;
-  state.recentSymbols = [code, ...state.recentSymbols.filter((item) => item !== code)].slice(0, 4);
-  localStorage.setItem(storageKeys.recentSymbols, JSON.stringify(state.recentSymbols));
-  renderRecentSymbols();
-}
-
-function renderRecentSymbols() {
-  recentSymbols.innerHTML = "";
-  for (const symbol of state.recentSymbols) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.symbol = symbol;
-    button.textContent = symbol;
-    button.title = `快速填入最近搜尋：${symbol}`;
-    button.addEventListener("click", () => {
-      symbolInput.value = symbol;
-    });
-    recentSymbols.appendChild(button);
-  }
-}
-
 function applyTheme(choice) {
   const theme = ["system", "light", "dark"].includes(choice) ? choice : "system";
   if (theme === "system") root.removeAttribute("data-theme");
@@ -655,7 +618,6 @@ async function runAnalysis(event) {
     state.lastReport = buildReport(analysis);
     downloadReportButton.disabled = false;
     downloadChartButton.disabled = false;
-    saveRecentSymbol(rawSymbol);
     setStatus(`分析完成：${analysis.signal}，AI 上漲機率 ${formatNumber(analysis.probability, 1)}%。\n資料來源：${source}`);
   } catch (error) {
     setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 請確認 data/tracked-symbols.json 已包含此股票代號，並到 GitHub Actions 手動執行 Update stock data。若此代號沒有靜態 JSON，純前端仍會受外部資料源 CORS 限制。`);
@@ -684,11 +646,9 @@ downloadChartButton.addEventListener("click", () => {
 });
 
 initTheme();
-loadRecentSymbols();
-renderRecentSymbols();
 
 drawChart({
-  symbol: "0050.TW",
+  symbol: "待分析",
   bars: Array.from({ length: 180 }, (_, index) => ({
     date: new Date(),
     close: 80 + Math.sin(index / 15) * 4 + index * 0.08,
