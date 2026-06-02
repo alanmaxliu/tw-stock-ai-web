@@ -1,0 +1,539 @@
+const $ = (selector) => document.querySelector(selector);
+
+const state = {
+  lastReport: "",
+  lastSymbol: "",
+  lastTimestamp: "",
+};
+
+const form = $("#analysis-form");
+const symbolInput = $("#symbol-input");
+const statusBox = $("#status-box");
+const analyzeButton = $("#analyze-button");
+const canvas = $("#price-chart");
+const ctx = canvas.getContext("2d");
+const downloadReportButton = $("#download-report");
+const downloadChartButton = $("#download-chart");
+
+function normalizeSymbol(rawSymbol) {
+  const value = rawSymbol.trim().toUpperCase();
+  if (/^\d+$/.test(value)) return `${value}.TW`;
+  return value;
+}
+
+function setStatus(message) {
+  statusBox.textContent = message;
+}
+
+function formatNumber(value, digits = 2) {
+  if (!Number.isFinite(value)) return "--";
+  return value.toFixed(digits);
+}
+
+function yahooChartUrl(symbol) {
+  const params = new URLSearchParams({
+    range: "1y",
+    interval: "1d",
+    includePrePost: "false",
+    events: "history",
+  });
+  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?${params.toString()}`;
+}
+
+async function fetchBars(symbol) {
+  const response = await fetch(yahooChartUrl(symbol), { cache: "no-store" });
+  if (!response.ok) throw new Error(`資料來源回應失敗：HTTP ${response.status}`);
+  const payload = await response.json();
+  const result = payload.chart?.result?.[0];
+  if (!result) throw new Error("查無行情資料。");
+  const timestamps = result.timestamp || [];
+  const quote = result.indicators?.quote?.[0] || {};
+  const bars = [];
+  for (let index = 0; index < timestamps.length; index += 1) {
+    const close = quote.close?.[index];
+    const open = quote.open?.[index];
+    const high = quote.high?.[index];
+    const low = quote.low?.[index];
+    const volume = quote.volume?.[index];
+    if (![open, high, low, close].every(Number.isFinite)) continue;
+    bars.push({
+      date: new Date(timestamps[index] * 1000),
+      open,
+      high,
+      low,
+      close,
+      volume: Number.isFinite(volume) ? volume : 0,
+    });
+  }
+  if (bars.length < 150) throw new Error(`資料筆數不足，目前只有 ${bars.length} 筆。`);
+  return bars;
+}
+
+function mean(values) {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function stdev(values) {
+  const avg = mean(values);
+  const variance = mean(values.map((value) => (value - avg) ** 2));
+  return Math.sqrt(variance);
+}
+
+function sma(values, window) {
+  return mean(values.slice(-window));
+}
+
+function smaSeries(values, window) {
+  return values.map((_, index) => {
+    if (index + 1 < window) return null;
+    return mean(values.slice(index + 1 - window, index + 1));
+  });
+}
+
+function emaSeries(values, window) {
+  const multiplier = 2 / (window + 1);
+  const output = [values[0]];
+  for (let index = 1; index < values.length; index += 1) {
+    output.push(values[index] * multiplier + output[index - 1] * (1 - multiplier));
+  }
+  return output;
+}
+
+function rsi(values, window = 14) {
+  const recent = values.slice(-(window + 1));
+  let gains = 0;
+  let losses = 0;
+  for (let index = 1; index < recent.length; index += 1) {
+    const change = recent[index] - recent[index - 1];
+    if (change >= 0) gains += change;
+    else losses += Math.abs(change);
+  }
+  const averageGain = gains / window;
+  const averageLoss = losses / window;
+  if (averageLoss === 0) return 100;
+  const rs = averageGain / averageLoss;
+  return 100 - 100 / (1 + rs);
+}
+
+function macd(values) {
+  const ema12 = emaSeries(values, 12);
+  const ema26 = emaSeries(values, 26);
+  const line = ema12.map((value, index) => value - ema26[index]);
+  const signal = emaSeries(line, 9);
+  const current = line.at(-1);
+  const currentSignal = signal.at(-1);
+  return { macd: current, signal: currentSignal, hist: current - currentSignal };
+}
+
+function bollinger(values, window = 20) {
+  const recent = values.slice(-window);
+  const mid = mean(recent);
+  const sd = stdev(recent);
+  return { mid, upper: mid + 2 * sd, lower: mid - 2 * sd };
+}
+
+function percentileRank(values, current) {
+  return (values.filter((value) => value <= current).length / values.length) * 100;
+}
+
+function maxDrawdown(values) {
+  let peak = values[0];
+  let worst = 0;
+  for (const value of values) {
+    peak = Math.max(peak, value);
+    worst = Math.min(worst, (value / peak - 1) * 100);
+  }
+  return worst;
+}
+
+function trueRange(bars, index) {
+  if (index === 0) return bars[index].high - bars[index].low;
+  const previousClose = bars[index - 1].close;
+  return Math.max(
+    bars[index].high - bars[index].low,
+    Math.abs(bars[index].high - previousClose),
+    Math.abs(bars[index].low - previousClose),
+  );
+}
+
+function atrPercent(bars, window = 14) {
+  const ranges = [];
+  for (let index = bars.length - window; index < bars.length; index += 1) {
+    ranges.push(trueRange(bars, index));
+  }
+  return (mean(ranges) / bars.at(-1).close) * 100;
+}
+
+function percentChange(values, window) {
+  if (values.length <= window) return 0;
+  return (values.at(-1) / values[values.length - window - 1] - 1) * 100;
+}
+
+function annualizedVolatility(values, window = 20) {
+  const recent = values.slice(-(window + 1));
+  const returns = [];
+  for (let index = 1; index < recent.length; index += 1) {
+    returns.push(recent[index] / recent[index - 1] - 1);
+  }
+  return stdev(returns) * Math.sqrt(252) * 100;
+}
+
+function buildFeatures(closes, index) {
+  const slice = closes.slice(0, index + 1);
+  const current = slice.at(-1);
+  const ma20 = sma(slice, 20);
+  const ma60 = sma(slice, 60);
+  const rsi14 = rsi(slice, 14);
+  const m = macd(slice);
+  const pRank = percentileRank(slice.slice(-180), current);
+  const ret5 = percentChange(slice, 5);
+  const ret20 = percentChange(slice, 20);
+  return [
+    current / ma20 - 1,
+    current / ma60 - 1,
+    (rsi14 - 50) / 50,
+    m.hist / current,
+    (pRank - 50) / 50,
+    ret5 / 20,
+    ret20 / 40,
+  ];
+}
+
+async function trainProbabilityModel(bars) {
+  if (!window.tf) throw new Error("TensorFlow.js 尚未載入。");
+  const closes = bars.map((bar) => bar.close);
+  const xs = [];
+  const ys = [];
+  const horizon = 20;
+  for (let index = 80; index < closes.length - horizon; index += 1) {
+    xs.push(buildFeatures(closes, index));
+    ys.push(closes[index + horizon] > closes[index] ? 1 : 0);
+  }
+  if (xs.length < 40) throw new Error("可訓練資料不足。");
+
+  const xTensor = tf.tensor2d(xs);
+  const yTensor = tf.tensor2d(ys, [ys.length, 1]);
+  const model = tf.sequential();
+  model.add(tf.layers.dense({ units: 12, activation: "relu", inputShape: [xs[0].length] }));
+  model.add(tf.layers.dense({ units: 6, activation: "relu" }));
+  model.add(tf.layers.dense({ units: 1, activation: "sigmoid" }));
+  model.compile({ optimizer: tf.train.adam(0.018), loss: "binaryCrossentropy" });
+  await model.fit(xTensor, yTensor, {
+    epochs: 70,
+    batchSize: 16,
+    verbose: 0,
+    shuffle: true,
+  });
+
+  const latest = tf.tensor2d([buildFeatures(closes, closes.length - 1)]);
+  const prediction = model.predict(latest);
+  const probability = (await prediction.data())[0] * 100;
+  tf.dispose([xTensor, yTensor, latest, prediction]);
+  model.dispose();
+  return probability;
+}
+
+function scoreAnalysis(metrics, probability) {
+  let score = 50;
+  const reasons = [];
+  const risks = [];
+  if (metrics.current > metrics.ma20 && metrics.ma20 > metrics.ma60 && metrics.ma60 > metrics.ma120) {
+    score += 12;
+    reasons.push("均線呈多頭排列，趨勢結構偏強。");
+  } else if (metrics.current < metrics.ma60) {
+    score -= 10;
+    risks.push("價格低於 60 日均線，中期趨勢轉弱。");
+  }
+  if (metrics.rsi14 >= 70) {
+    score -= 14;
+    risks.push("RSI 高於 70，短線追高風險升高。");
+  } else if (metrics.rsi14 <= 35) {
+    score += 12;
+    reasons.push("RSI 偏低，具備分批觀察條件。");
+  }
+  if (metrics.macdHist > 0) {
+    score += 6;
+    reasons.push("MACD 柱狀體為正，動能仍偏多。");
+  } else {
+    score -= 4;
+    risks.push("MACD 柱狀體為負，動能偏弱。");
+  }
+  if (metrics.percentile >= 85) {
+    score -= 12;
+    risks.push(`近一年價格百分位 ${formatNumber(metrics.percentile, 1)}%，安全邊際不足。`);
+  } else if (metrics.percentile <= 30) {
+    score += 10;
+    reasons.push("價格位於近一年相對低位。");
+  }
+  if (metrics.drawdown60 >= -2) risks.push("價格貼近 60 日高點，較不適合急著投入。");
+  if (metrics.volatility20 >= 28) risks.push(`20 日年化波動率 ${formatNumber(metrics.volatility20, 1)}%，波動偏高。`);
+  score += (probability - 50) * 0.35;
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  let signal;
+  let action;
+  if (score >= 72) {
+    signal = "分批投入條件佳";
+    action = "可考慮小比例分批投入，避免一次投入全部資金。";
+  } else if (score >= 58) {
+    signal = "中性偏多，等待好價格";
+    action = "可持續觀察，等待回測 20 日均線或 RSI 降溫後投入。";
+  } else if (score >= 42) {
+    signal = "中性偏弱，暫不追價";
+    action = "保留資金，等待接近 60 日均線或出現明確回檔。";
+  } else {
+    signal = "風險偏高，等待";
+    action = "目前不建議投入，等待價格降溫或趨勢重新整理。";
+  }
+  return { score, signal, action, reasons, risks };
+}
+
+function analyzeBars(symbol, bars, probability) {
+  const closes = bars.map((bar) => bar.close);
+  const highs = bars.map((bar) => bar.high);
+  const lows = bars.map((bar) => bar.low);
+  const current = closes.at(-1);
+  const m = macd(closes);
+  const b = bollinger(closes);
+  const metrics = {
+    symbol,
+    date: bars.at(-1).date,
+    current,
+    ma20: sma(closes, 20),
+    ma60: sma(closes, 60),
+    ma120: sma(closes, 120),
+    rsi14: rsi(closes, 14),
+    macd: m.macd,
+    macdSignal: m.signal,
+    macdHist: m.hist,
+    bollMid: b.mid,
+    bollUpper: b.upper,
+    bollLower: b.lower,
+    return20: percentChange(closes, 20),
+    return60: percentChange(closes, 60),
+    drawdown60: (current / Math.max(...closes.slice(-60)) - 1) * 100,
+    drawdown1y: maxDrawdown(closes),
+    volatility20: annualizedVolatility(closes, 20),
+    atr14Pct: atrPercent(bars, 14),
+    percentile: percentileRank(closes, current),
+    support20: Math.min(...lows.slice(-20)),
+    support60: Math.min(...lows.slice(-60)),
+    resistance20: Math.max(...highs.slice(-20)),
+    resistance60: Math.max(...highs.slice(-60)),
+    probability,
+  };
+  return { ...metrics, ...scoreAnalysis(metrics, probability), bars };
+}
+
+function drawChart(analysis) {
+  const width = canvas.width;
+  const height = canvas.height;
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+
+  const bars = analysis.bars.slice(-180);
+  const closes = bars.map((bar) => bar.close);
+  const allCloses = analysis.bars.map((bar) => bar.close);
+  const ma20 = smaSeries(allCloses, 20).slice(-180);
+  const ma60 = smaSeries(allCloses, 60).slice(-180);
+  const ma120 = smaSeries(allCloses, 120).slice(-180);
+  const margin = { left: 70, top: 62, right: 34, priceBottom: 470, rsiTop: 525, bottom: 675 };
+  const minPrice = Math.min(...closes, ...ma120.filter(Boolean));
+  const maxPrice = Math.max(...closes, ...ma20.filter(Boolean));
+  const priceSpan = maxPrice - minPrice || 1;
+  const xAt = (index) => margin.left + (index / (bars.length - 1)) * (width - margin.left - margin.right);
+  const yPrice = (value) => margin.priceBottom - ((value - minPrice) / priceSpan) * (margin.priceBottom - margin.top);
+  const yRsi = (value) => margin.bottom - (value / 100) * (margin.bottom - margin.rsiTop);
+
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "700 26px Microsoft JhengHei, sans-serif";
+  ctx.fillText(`${analysis.symbol} 技術分析`, margin.left, 36);
+  ctx.font = "15px Microsoft JhengHei, sans-serif";
+  ctx.fillStyle = "#64748b";
+  ctx.fillText(`收盤 ${formatNumber(analysis.current)} ｜ 分數 ${analysis.score}/100 ｜ AI 上漲機率 ${formatNumber(analysis.probability, 1)}%`, margin.left, 58);
+
+  ctx.strokeStyle = "#cbd5e1";
+  ctx.strokeRect(margin.left, margin.top, width - margin.left - margin.right, margin.priceBottom - margin.top);
+  ctx.strokeRect(margin.left, margin.rsiTop, width - margin.left - margin.right, margin.bottom - margin.rsiTop);
+  ctx.strokeStyle = "#e2e8f0";
+  [0.25, 0.5, 0.75].forEach((fraction) => {
+    const y = margin.top + fraction * (margin.priceBottom - margin.top);
+    line(margin.left, y, width - margin.right, y);
+  });
+  [30, 70].forEach((level) => line(margin.left, yRsi(level), width - margin.right, yRsi(level)));
+
+  drawSeries(closes.map((value, index) => [xAt(index), yPrice(value)]), "#111827", 3);
+  drawSeries(ma20.map((value, index) => value == null ? null : [xAt(index), yPrice(value)]).filter(Boolean), "#f97316", 2);
+  drawSeries(ma60.map((value, index) => value == null ? null : [xAt(index), yPrice(value)]).filter(Boolean), "#0f766e", 2);
+  drawSeries(ma120.map((value, index) => value == null ? null : [xAt(index), yPrice(value)]).filter(Boolean), "#64748b", 2);
+
+  const rsiValues = allCloses.map((_, index) => index < 14 ? null : rsi(allCloses.slice(0, index + 1), 14)).slice(-180);
+  drawSeries(rsiValues.map((value, index) => value == null ? null : [xAt(index), yRsi(value)]).filter(Boolean), "#7c3aed", 2);
+
+  ctx.fillStyle = "#475569";
+  ctx.font = "14px Microsoft JhengHei, sans-serif";
+  ctx.fillText(`MA20 ${formatNumber(analysis.ma20)} ｜ MA60 ${formatNumber(analysis.ma60)} ｜ MA120 ${formatNumber(analysis.ma120)}`, margin.left, margin.priceBottom + 24);
+  ctx.fillText(`RSI14 ${formatNumber(analysis.rsi14, 1)} ｜ 支撐 ${formatNumber(analysis.support60)} ｜ 壓力 ${formatNumber(analysis.resistance60)}`, margin.left, margin.bottom + 26);
+
+  function line(x1, y1, x2, y2) {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+  function drawSeries(points, color, widthValue) {
+    if (points.length < 2) return;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = widthValue;
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (const point of points.slice(1)) ctx.lineTo(point[0], point[1]);
+    ctx.stroke();
+  }
+}
+
+function buildReport(analysis) {
+  const date = analysis.date.toLocaleDateString("zh-TW");
+  return `股票技術分析報告：${analysis.symbol}
+產出時間：${new Date().toLocaleString("zh-TW")}
+最新交易日：${date}
+
+核心結論
+- 今日訊號：${analysis.signal}
+- 技術分數：${analysis.score}/100
+- AI 未來 20 個交易日上漲機率：${formatNumber(analysis.probability, 1)}%
+- 行動參考：${analysis.action}
+
+價格與趨勢
+- 最新收盤：${formatNumber(analysis.current)}
+- MA20 / MA60 / MA120：${formatNumber(analysis.ma20)} / ${formatNumber(analysis.ma60)} / ${formatNumber(analysis.ma120)}
+- 20 日報酬：${formatNumber(analysis.return20)}%
+- 60 日報酬：${formatNumber(analysis.return60)}%
+
+動能與風險
+- RSI14：${formatNumber(analysis.rsi14, 1)}
+- MACD Histogram：${formatNumber(analysis.macdHist, 3)}
+- 布林上緣 / 中線 / 下緣：${formatNumber(analysis.bollUpper)} / ${formatNumber(analysis.bollMid)} / ${formatNumber(analysis.bollLower)}
+- 20 日年化波動率：${formatNumber(analysis.volatility20, 1)}%
+- 近一年最大回撤：${formatNumber(Math.abs(analysis.drawdown1y), 1)}%
+- 近一年價格百分位：${formatNumber(analysis.percentile, 1)}%
+- 60 日支撐 / 壓力：${formatNumber(analysis.support60)} / ${formatNumber(analysis.resistance60)}
+
+主要判斷
+${analysis.reasons.map((item) => `- ${item}`).join("\n")}
+
+主要風險
+${analysis.risks.map((item) => `- ${item}`).join("\n")}
+
+風險聲明
+此報告只依公開價格資料與 TensorFlow.js 訓練出的簡化模型產生量化觀察，不是保證獲利建議，也不是個人化投資建議。`;
+}
+
+function updateUi(analysis) {
+  $("#signal-label").textContent = analysis.signal;
+  $("#probability-label").textContent = `${formatNumber(analysis.probability, 1)}%`;
+  $("#score-label").textContent = `${analysis.score}/100`;
+  $("#price-label").textContent = formatNumber(analysis.current);
+  $("#analysis-text").textContent = `最新交易日：${analysis.date.toLocaleDateString("zh-TW")}
+MA20 / MA60 / MA120：${formatNumber(analysis.ma20)} / ${formatNumber(analysis.ma60)} / ${formatNumber(analysis.ma120)}
+RSI14：${formatNumber(analysis.rsi14, 1)}
+MACD Histogram：${formatNumber(analysis.macdHist, 3)}
+20 日年化波動率：${formatNumber(analysis.volatility20, 1)}%
+近一年價格百分位：${formatNumber(analysis.percentile, 1)}%`;
+  $("#action-text").textContent = `${analysis.action}
+
+主要判斷：
+${analysis.reasons.map((item) => `- ${item}`).join("\n")}
+
+主要風險：
+${analysis.risks.map((item) => `- ${item}`).join("\n")}`;
+}
+
+function downloadBlob(filename, type, content) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function timestampName() {
+  return new Date().toISOString().replaceAll(":", "").replaceAll("-", "").slice(0, 15);
+}
+
+async function runAnalysis(event) {
+  event.preventDefault();
+  const symbol = normalizeSymbol(symbolInput.value);
+  state.lastSymbol = symbol;
+  analyzeButton.disabled = true;
+  downloadReportButton.disabled = true;
+  downloadChartButton.disabled = true;
+  try {
+    setStatus(`讀取 ${symbol} 行情資料。`);
+    const bars = await fetchBars(symbol);
+    setStatus("訓練 TensorFlow.js 模型並計算技術指標。");
+    const probability = await trainProbabilityModel(bars);
+    const analysis = analyzeBars(symbol, bars, probability);
+    drawChart(analysis);
+    updateUi(analysis);
+    state.lastTimestamp = timestampName();
+    state.lastReport = buildReport(analysis);
+    downloadReportButton.disabled = false;
+    downloadChartButton.disabled = false;
+    setStatus(`分析完成：${analysis.signal}，AI 上漲機率 ${formatNumber(analysis.probability, 1)}%。`);
+  } catch (error) {
+    setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 確認股票代號、網路連線，或資料來源是否允許 GitHub Pages 跨網域讀取。`);
+  } finally {
+    analyzeButton.disabled = false;
+  }
+}
+
+form.addEventListener("submit", runAnalysis);
+
+document.querySelectorAll("[data-symbol]").forEach((button) => {
+  button.addEventListener("click", () => {
+    symbolInput.value = button.dataset.symbol;
+  });
+});
+
+downloadReportButton.addEventListener("click", () => {
+  downloadBlob(`${state.lastSymbol}_${state.lastTimestamp}_analysis.md`, "text/markdown;charset=utf-8", state.lastReport);
+});
+
+downloadChartButton.addEventListener("click", () => {
+  canvas.toBlob((blob) => {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${state.lastSymbol}_${state.lastTimestamp}_chart.png`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }, "image/png");
+});
+
+drawChart({
+  symbol: "0050.TW",
+  bars: Array.from({ length: 180 }, (_, index) => ({
+    date: new Date(),
+    close: 80 + Math.sin(index / 15) * 4 + index * 0.08,
+  })),
+  current: 94,
+  score: 0,
+  probability: 0,
+  signal: "等待分析",
+  ma20: 93,
+  ma60: 90,
+  ma120: 87,
+  rsi14: 50,
+  support60: 88,
+  resistance60: 96,
+});

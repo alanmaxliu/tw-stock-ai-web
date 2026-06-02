@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>台股 AI 技術分析工具</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js" defer></script>
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="control-panel" aria-label="分析控制台">
+        <div class="brand-block">
+          <p class="eyebrow">Taiwan Stock AI Lab</p>
+          <h1>台股 AI 技術分析工具</h1>
+          <p class="subtitle">輸入股票代號後，在瀏覽器內抓取近一年日線資料，使用 TensorFlow.js 與技術指標產生投入觀察報告。</p>
+        </div>
+
+        <form id="analysis-form" class="analysis-form">
+          <label for="symbol-input">股票代號</label>
+          <div class="input-row">
+            <input id="symbol-input" name="symbol" type="text" inputmode="latin" value="0050" placeholder="例：0050、2330、2454" autocomplete="off" />
+            <button id="analyze-button" type="submit">開始分析</button>
+          </div>
+          <div class="quick-symbols" aria-label="快速代號">
+            <button type="button" data-symbol="0050">0050</button>
+            <button type="button" data-symbol="2330">2330</button>
+            <button type="button" data-symbol="2454">2454</button>
+            <button type="button" data-symbol="2412">2412</button>
+          </div>
+        </form>
+
+        <div class="status-box" id="status-box">等待輸入股票代號。</div>
+
+        <div class="download-row">
+          <button id="download-report" type="button" disabled>下載分析報告</button>
+          <button id="download-chart" type="button" disabled>下載 PNG 圖表</button>
+        </div>
+
+        <section class="notice">
+          <h2>使用限制</h2>
+          <p>這是純前端工具，不會儲存你的查詢紀錄。GitHub Pages 無法保證所有資料源永遠可跨網域讀取；若資料源封鎖，頁面會顯示錯誤。分析結果只供研究參考，不是保證獲利建議。</p>
+        </section>
+      </section>
+
+      <section class="result-panel" aria-label="分析結果">
+        <div class="summary-grid">
+          <article class="metric-card">
+            <span>今日訊號</span>
+            <strong id="signal-label">尚未分析</strong>
+          </article>
+          <article class="metric-card">
+            <span>AI 上漲機率</span>
+            <strong id="probability-label">--</strong>
+          </article>
+          <article class="metric-card">
+            <span>技術分數</span>
+            <strong id="score-label">--</strong>
+          </article>
+          <article class="metric-card">
+            <span>最新收盤</span>
+            <strong id="price-label">--</strong>
+          </article>
+        </div>
+
+        <div class="chart-wrap">
+          <canvas id="price-chart" width="1280" height="720" aria-label="價格與 RSI 分析圖"></canvas>
+        </div>
+
+        <div class="analysis-grid">
+          <section>
+            <h2>分析現況</h2>
+            <div id="analysis-text" class="text-block">尚未產生分析。</div>
+          </section>
+          <section>
+            <h2>投入觀察</h2>
+            <div id="action-text" class="text-block">請先執行分析。</div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
