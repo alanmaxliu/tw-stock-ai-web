@@ -20,6 +20,8 @@ const storageKeys = {
   theme: "twStockAiTheme",
 };
 
+const universeUrl = "./data/universe.json";
+
 function normalizeSymbol(rawSymbol) {
   const value = rawSymbol.trim().toUpperCase();
   if (/^\d+$/.test(value)) return `${value}.TW`;
@@ -33,6 +35,35 @@ function plainTaiwanCode(rawSymbol) {
 
 function setStatus(message) {
   statusBox.textContent = message;
+}
+
+function symbolLabel(item) {
+  const category = item.category === "ETF" ? "ETF" : "個股";
+  return `${category} #${item.rank}｜${item.symbol} ${item.name}｜${formatNumber(Number(item.latestClose))}`;
+}
+
+async function loadUniverse() {
+  analyzeButton.disabled = true;
+  try {
+    const response = await fetch(`${universeUrl}?t=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    const symbols = Array.isArray(payload.symbols) ? payload.symbols : [];
+    if (symbols.length === 0) throw new Error("熱門清單是空的。");
+    symbolInput.innerHTML = "";
+    for (const item of symbols) {
+      const option = document.createElement("option");
+      option.value = item.symbol;
+      option.textContent = symbolLabel(item);
+      option.dataset.category = item.category || "";
+      symbolInput.appendChild(option);
+    }
+    analyzeButton.disabled = false;
+    setStatus(`已載入 ${symbols.length} 檔熱門清單。更新時間：${payload.generatedAt || "--"}`);
+  } catch (error) {
+    symbolInput.innerHTML = '<option value="">熱門清單載入失敗</option>';
+    setStatus(`Status: FAILED\nRoot Cause: 無法載入 data/universe.json：${error.message}\nSuggested Fix: 確認 GitHub Actions 已成功產生 data/universe.json 與 data/stocks/*.json。`);
+  }
 }
 
 function formatNumber(value, digits = 2) {
@@ -134,7 +165,7 @@ async function fetchStaticBars(code) {
     volume: Number(bar.volume) || 0,
   })).filter((bar) => [bar.open, bar.high, bar.low, bar.close].every(Number.isFinite));
   if (bars.length < 150) throw new Error(`靜態資料筆數不足，目前只有 ${bars.length} 筆。`);
-  return { bars, source: payload.source || "GitHub Actions static JSON" };
+  return { bars, source: payload.source || "GitHub Actions static JSON", generatedAt: payload.generatedAt || "" };
 }
 
 function recentMonthStarts(count) {
@@ -681,7 +712,8 @@ async function runAnalysis(event) {
   downloadReportButton.disabled = true;
   downloadChartButton.disabled = true;
   try {
-    setStatus(`讀取 ${symbol} 行情資料。系統會優先讀取 GitHub Actions 產生的靜態 JSON；若沒有資料，才嘗試外部資料源。`);
+    if (!rawSymbol) throw new Error("請先從下拉選單選擇標的。");
+    setStatus(`讀取 ${symbol} 行情資料。系統會優先讀取 GitHub Actions 產生的熱門 40 檔靜態 JSON。`);
     const { bars, source, realtimeStatus } = await fetchBars(symbol, rawSymbol);
     setStatus("訓練 TensorFlow.js 模型並計算技術指標。");
     const probability = await trainProbabilityModel(bars);
@@ -694,7 +726,7 @@ async function runAnalysis(event) {
     downloadChartButton.disabled = false;
     setStatus(`分析完成：${analysis.signal}，AI 上漲機率 ${formatNumber(analysis.probability, 1)}%。\n資料來源：${source}\n盤中報價狀態：${realtimeStatus || "未執行盤中報價檢查"}`);
   } catch (error) {
-    setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 請確認 data/tracked-symbols.json 已包含此股票代號，並到 GitHub Actions 手動執行 Update stock data。若此代號沒有靜態 JSON，純前端仍會受外部資料源 CORS 限制。`);
+    setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 請確認 GitHub Actions 已成功產生 data/universe.json 與該股票的 data/stocks/{代號}.json。`);
   } finally {
     analyzeButton.disabled = false;
   }
@@ -720,6 +752,7 @@ downloadChartButton.addEventListener("click", () => {
 });
 
 initTheme();
+loadUniverse();
 
 drawChart({
   symbol: "待分析",
