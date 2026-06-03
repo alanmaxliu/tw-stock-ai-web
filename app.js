@@ -21,6 +21,7 @@ const storageKeys = {
 };
 
 const universeUrl = "./data/universe.json";
+const isMobileDevice = matchMedia("(max-width: 760px)").matches || /iPhone|iPad|Android/i.test(navigator.userAgent);
 
 function normalizeSymbol(rawSymbol) {
   const value = rawSymbol.trim().toUpperCase();
@@ -98,6 +99,12 @@ function twseRealtimeUrl(code) {
   return `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?${params.toString()}`;
 }
 
+function timeoutSignal(milliseconds) {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), milliseconds);
+  return controller.signal;
+}
+
 function staticDataUrl(code) {
   return `./data/stocks/${encodeURIComponent(code)}.json`;
 }
@@ -123,7 +130,7 @@ function parseRealtimeDate(dateValue, timeValue) {
 }
 
 async function fetchYahooBars(symbol) {
-  const response = await fetch(yahooChartUrl(symbol), { cache: "no-store" });
+  const response = await fetch(yahooChartUrl(symbol), { cache: "no-store", signal: timeoutSignal(9000) });
   if (!response.ok) throw new Error(`資料來源回應失敗：HTTP ${response.status}`);
   const payload = await response.json();
   const result = payload.chart?.result?.[0];
@@ -153,7 +160,7 @@ async function fetchYahooBars(symbol) {
 
 async function fetchStaticBars(code) {
   if (!code) throw new Error("靜態資料只支援台股數字代號。");
-  const response = await fetch(staticDataUrl(code), { cache: "no-store" });
+  const response = await fetch(`${staticDataUrl(code)}?t=${Date.now()}`, { cache: "no-store" });
   if (!response.ok) throw new Error(`靜態資料不存在：HTTP ${response.status}`);
   const payload = await response.json();
   const bars = (payload.bars || []).map((bar) => ({
@@ -181,7 +188,7 @@ function recentMonthStarts(count) {
 async function fetchTwseBars(code) {
   if (!code) throw new Error("TWSE 備援資料源只支援台股數字代號。");
   const requests = recentMonthStarts(14).map(async (date) => {
-    const response = await fetch(twseMonthUrl(code, date), { cache: "no-store" });
+    const response = await fetch(twseMonthUrl(code, date), { cache: "no-store", signal: timeoutSignal(9000) });
     if (!response.ok) throw new Error(`TWSE HTTP ${response.status}`);
     return response.json();
   });
@@ -209,7 +216,7 @@ async function fetchTwseBars(code) {
 
 async function fetchRealtimeQuote(code) {
   if (!code) throw new Error("即時報價只支援台股數字代號。");
-  const response = await fetch(twseRealtimeUrl(code), { cache: "no-store" });
+  const response = await fetch(twseRealtimeUrl(code), { cache: "no-store", signal: timeoutSignal(2500) });
   if (!response.ok) throw new Error(`TWSE MIS HTTP ${response.status}`);
   const payload = await response.json();
   const quote = (payload.msgArray || []).find((item) => item?.c === code && Number.isFinite(parseTwseNumber(item.z)));
@@ -267,12 +274,14 @@ async function fetchBars(symbol, rawSymbol) {
     errors.push(`GitHub 靜態資料：${error.message}`);
   }
   try {
-    return await mergeRealtimeQuote(await fetchYahooBars(symbol), code);
+    const yahooResult = await fetchYahooBars(symbol);
+    return { ...yahooResult, realtimeStatus: "未套用盤中報價：外部備援資料源不再等待 TWSE MIS，以避免手機瀏覽器卡住。" };
   } catch (error) {
     errors.push(`Yahoo Finance：${error.message}`);
   }
   try {
-    return await mergeRealtimeQuote(await fetchTwseBars(code), code);
+    const twseResult = await fetchTwseBars(code);
+    return { ...twseResult, realtimeStatus: "未套用盤中報價：外部備援資料源不再等待 TWSE MIS，以避免手機瀏覽器卡住。" };
   } catch (error) {
     errors.push(`TWSE：${error.message}`);
   }
@@ -415,7 +424,8 @@ async function trainProbabilityModel(bars) {
   const xs = [];
   const ys = [];
   const horizon = 20;
-  for (let index = 80; index < closes.length - horizon; index += 1) {
+  const startIndex = isMobileDevice ? Math.max(80, closes.length - 140) : 80;
+  for (let index = startIndex; index < closes.length - horizon; index += 1) {
     xs.push(buildFeatures(closes, index));
     ys.push(closes[index + horizon] > closes[index] ? 1 : 0);
   }
@@ -429,8 +439,8 @@ async function trainProbabilityModel(bars) {
   model.add(tf.layers.dense({ units: 1, activation: "sigmoid" }));
   model.compile({ optimizer: tf.train.adam(0.018), loss: "binaryCrossentropy" });
   await model.fit(xTensor, yTensor, {
-    epochs: 70,
-    batchSize: 16,
+    epochs: isMobileDevice ? 24 : 45,
+    batchSize: isMobileDevice ? 24 : 16,
     verbose: 0,
     shuffle: true,
   });
@@ -753,21 +763,22 @@ downloadChartButton.addEventListener("click", () => {
 
 initTheme();
 loadUniverse();
-
-drawChart({
-  symbol: "待分析",
-  bars: Array.from({ length: 180 }, (_, index) => ({
-    date: new Date(),
-    close: 80 + Math.sin(index / 15) * 4 + index * 0.08,
-  })),
-  current: 94,
-  score: 0,
-  probability: 0,
-  signal: "等待分析",
-  ma20: 93,
-  ma60: 90,
-  ma120: 87,
-  rsi14: 50,
-  support60: 88,
-  resistance60: 96,
+requestAnimationFrame(() => {
+  drawChart({
+    symbol: "待分析",
+    bars: Array.from({ length: 120 }, (_, index) => ({
+      date: new Date(),
+      close: 80 + Math.sin(index / 15) * 4 + index * 0.08,
+    })),
+    current: 94,
+    score: 0,
+    probability: 0,
+    signal: "等待分析",
+    ma20: 93,
+    ma60: 90,
+    ma120: 87,
+    rsi14: 50,
+    support60: 88,
+    resistance60: 96,
+  });
 });
