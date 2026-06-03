@@ -56,6 +56,17 @@ function twseMonthUrl(code, date) {
   return `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${year}${month}01&stockNo=${code}`;
 }
 
+function twseRealtimeUrl(code) {
+  const channels = [`tse_${code}.tw`, `otc_${code}.tw`].join("|");
+  const params = new URLSearchParams({
+    ex_ch: channels,
+    json: "1",
+    delay: "0",
+    _: String(Date.now()),
+  });
+  return `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?${params.toString()}`;
+}
+
 function staticDataUrl(code) {
   return `./data/stocks/${encodeURIComponent(code)}.json`;
 }
@@ -69,6 +80,15 @@ function parseTwseDate(value) {
   const parts = value.split("/").map((part) => Number(part));
   if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) return null;
   return new Date(parts[0] + 1911, parts[1] - 1, parts[2]);
+}
+
+function parseRealtimeDate(dateValue, timeValue) {
+  if (!/^\d{8}$/.test(dateValue || "") || !/^\d{2}:\d{2}:\d{2}$/.test(timeValue || "")) return null;
+  const year = Number(dateValue.slice(0, 4));
+  const month = Number(dateValue.slice(4, 6));
+  const day = Number(dateValue.slice(6, 8));
+  const [hour, minute, second] = timeValue.split(":").map((part) => Number(part));
+  return new Date(year, month - 1, day, hour, minute, second);
 }
 
 async function fetchYahooBars(symbol) {
@@ -156,21 +176,72 @@ async function fetchTwseBars(code) {
   return { bars: sorted.slice(-260), source: "TWSE 月資料 API" };
 }
 
+async function fetchRealtimeQuote(code) {
+  if (!code) throw new Error("即時報價只支援台股數字代號。");
+  const response = await fetch(twseRealtimeUrl(code), { cache: "no-store" });
+  if (!response.ok) throw new Error(`TWSE MIS HTTP ${response.status}`);
+  const payload = await response.json();
+  const quote = (payload.msgArray || []).find((item) => item?.c === code && Number.isFinite(parseTwseNumber(item.z)));
+  if (!quote) throw new Error("TWSE MIS 查無可用盤中成交價。");
+  const price = parseTwseNumber(quote.z);
+  const open = parseTwseNumber(quote.o);
+  const high = parseTwseNumber(quote.h);
+  const low = parseTwseNumber(quote.l);
+  const volume = parseTwseNumber(quote.v);
+  const date = parseRealtimeDate(quote.d, quote.t);
+  if (!date || !Number.isFinite(price)) throw new Error("TWSE MIS 回傳格式不完整。");
+  return {
+    date,
+    open: Number.isFinite(open) ? open : price,
+    high: Number.isFinite(high) ? high : price,
+    low: Number.isFinite(low) ? low : price,
+    close: price,
+    volume: Number.isFinite(volume) ? volume : 0,
+    name: quote.n || "",
+  };
+}
+
+async function mergeRealtimeQuote(result, code) {
+  if (!code) return result;
+  try {
+    const quote = await fetchRealtimeQuote(code);
+    const bars = [...result.bars];
+    const latest = bars.at(-1);
+    const quoteDay = quote.date.toISOString().slice(0, 10);
+    const latestDay = latest.date.toISOString().slice(0, 10);
+    if (quoteDay === latestDay) {
+      bars[bars.length - 1] = { ...latest, ...quote };
+    } else if (quote.date > latest.date) {
+      bars.push(quote);
+    }
+    return {
+      bars: bars.slice(-260),
+      source: `${result.source} + TWSE MIS 盤中報價`,
+      realtimeStatus: `已套用盤中報價：${quoteDay} ${quote.date.toLocaleTimeString("zh-TW")}`,
+    };
+  } catch (error) {
+    return {
+      ...result,
+      realtimeStatus: `未套用盤中報價：${error.message}`,
+    };
+  }
+}
+
 async function fetchBars(symbol, rawSymbol) {
   const errors = [];
   const code = plainTaiwanCode(rawSymbol);
   try {
-    return await fetchStaticBars(code);
+    return await mergeRealtimeQuote(await fetchStaticBars(code), code);
   } catch (error) {
     errors.push(`GitHub 靜態資料：${error.message}`);
   }
   try {
-    return await fetchYahooBars(symbol);
+    return await mergeRealtimeQuote(await fetchYahooBars(symbol), code);
   } catch (error) {
     errors.push(`Yahoo Finance：${error.message}`);
   }
   try {
-    return await fetchTwseBars(code);
+    return await mergeRealtimeQuote(await fetchTwseBars(code), code);
   } catch (error) {
     errors.push(`TWSE：${error.message}`);
   }
@@ -396,7 +467,7 @@ function scoreAnalysis(metrics, probability) {
   return { score, signal, action, reasons, risks };
 }
 
-function analyzeBars(symbol, bars, probability, source) {
+function analyzeBars(symbol, bars, probability, source, realtimeStatus) {
   const closes = bars.map((bar) => bar.close);
   const highs = bars.map((bar) => bar.high);
   const lows = bars.map((bar) => bar.low);
@@ -430,6 +501,7 @@ function analyzeBars(symbol, bars, probability, source) {
     resistance60: Math.max(...highs.slice(-60)),
     probability,
     source,
+    realtimeStatus,
   };
   return { ...metrics, ...scoreAnalysis(metrics, probability), bars };
 }
@@ -516,6 +588,7 @@ function buildReport(analysis) {
 - AI 未來 20 個交易日上漲機率：${formatNumber(analysis.probability, 1)}%
 - 行動參考：${analysis.action}
 - 資料來源：${analysis.source}
+- 盤中報價狀態：${analysis.realtimeStatus || "未執行盤中報價檢查"}
 
 價格與趨勢
 - 最新收盤：${formatNumber(analysis.current)}
@@ -550,6 +623,7 @@ function updateUi(analysis) {
   $("#source-label").textContent = analysis.source;
   $("#analysis-text").textContent = `最新交易日：${analysis.date.toLocaleDateString("zh-TW")}
 資料來源：${analysis.source}
+盤中報價狀態：${analysis.realtimeStatus || "未執行盤中報價檢查"}
 MA20 / MA60 / MA120：${formatNumber(analysis.ma20)} / ${formatNumber(analysis.ma60)} / ${formatNumber(analysis.ma120)}
 RSI14：${formatNumber(analysis.rsi14, 1)}
 MACD Histogram：${formatNumber(analysis.macdHist, 3)}
@@ -608,17 +682,17 @@ async function runAnalysis(event) {
   downloadChartButton.disabled = true;
   try {
     setStatus(`讀取 ${symbol} 行情資料。系統會優先讀取 GitHub Actions 產生的靜態 JSON；若沒有資料，才嘗試外部資料源。`);
-    const { bars, source } = await fetchBars(symbol, rawSymbol);
+    const { bars, source, realtimeStatus } = await fetchBars(symbol, rawSymbol);
     setStatus("訓練 TensorFlow.js 模型並計算技術指標。");
     const probability = await trainProbabilityModel(bars);
-    const analysis = analyzeBars(symbol, bars, probability, source);
+    const analysis = analyzeBars(symbol, bars, probability, source, realtimeStatus);
     drawChart(analysis);
     updateUi(analysis);
     state.lastTimestamp = timestampName();
     state.lastReport = buildReport(analysis);
     downloadReportButton.disabled = false;
     downloadChartButton.disabled = false;
-    setStatus(`分析完成：${analysis.signal}，AI 上漲機率 ${formatNumber(analysis.probability, 1)}%。\n資料來源：${source}`);
+    setStatus(`分析完成：${analysis.signal}，AI 上漲機率 ${formatNumber(analysis.probability, 1)}%。\n資料來源：${source}\n盤中報價狀態：${realtimeStatus || "未執行盤中報價檢查"}`);
   } catch (error) {
     setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 請確認 data/tracked-symbols.json 已包含此股票代號，並到 GitHub Actions 手動執行 Update stock data。若此代號沒有靜態 JSON，純前端仍會受外部資料源 CORS 限制。`);
   } finally {
