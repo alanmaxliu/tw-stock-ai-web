@@ -2,22 +2,22 @@ name: Update stock data
 
 on:
   schedule:
-    # 1. 台灣時間 09:00 ~ 12:55（每 5 分鐘執行一次） -> UTC 01:00 至 04:55
     - cron: "*/5 1-4 * * 1-5"
-    
-    # 2. 台灣時間 13:00 ~ 13:30（每 5 分鐘執行一次） -> UTC 05:00 至 05:30
     - cron: "0,5,10,15,20,25,30 5 * * 1-5"
-    
-    # 3. 台灣時間 14:00（收盤後最後抓取一次） -> UTC 06:00
     - cron: "0 6 * * 1-5"
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: update-stock-data
+  cancel-in-progress: true
+
 jobs:
   update-stock-data:
     runs-on: ubuntu-latest
+    timeout-minutes: 4
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
