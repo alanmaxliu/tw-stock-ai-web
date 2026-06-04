@@ -1,16 +1,8 @@
 {
   "symbol": "2308",
   "source": "Yahoo Finance history + TWSE GitHub Actions top 40 snapshot",
-  "generatedAt": "2026-06-03T15:59:50+08:00",
+  "generatedAt": "2026-06-04T02:01:43+00:00",
   "bars": [
-    {
-      "date": "2025-06-03",
-      "open": 374.5,
-      "high": 386.0,
-      "low": 373.0,
-      "close": 379.5,
-      "volume": 14118434.0
-    },
     {
       "date": "2025-06-04",
       "open": 382.0,
@@ -1953,7 +1945,15 @@
       "high": 2460.0,
       "low": 2410.0,
       "close": 2455.0,
-      "volume": 9558.0
+      "volume": 9586099.0
+    },
+    {
+      "date": "2026-06-04",
+      "open": 2440.0,
+      "high": 2465.0,
+      "low": 2405.0,
+      "close": 2422.5,
+      "volume": 2819.0
     }
   ]
 }
