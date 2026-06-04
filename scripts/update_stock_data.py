@@ -2,7 +2,7 @@ import json
 import ssl
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -19,10 +19,11 @@ TOP_STOCK_COUNT = 20
 ETF_CANDIDATE_COUNT = 32
 STOCK_CANDIDATE_COUNT = 32
 SSL_CONTEXT = ssl._create_unverified_context()
+TAIPEI_TZ = timezone(timedelta(hours=8))
 
 
 def taipei_now_iso() -> str:
-    return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+    return datetime.now(TAIPEI_TZ).isoformat(timespec="seconds")
 
 
 def recent_months(count: int) -> list[datetime]:
@@ -278,7 +279,7 @@ def fetch_symbol_history_yahoo(symbol: str, quote: dict | None) -> dict:
         raise RuntimeError(f"{symbol} Yahoo records insufficient: {len(bars)}")
     return {
         "symbol": symbol,
-        "source": "Yahoo Finance history + TWSE GitHub Actions top 40 snapshot",
+        "source": "Yahoo Finance history + TWSE MIS GitHub Actions snapshot",
         "generatedAt": taipei_now_iso(),
         "bars": bars[-260:],
     }
@@ -318,7 +319,7 @@ def fetch_symbol_history_twse(symbol: str, quote: dict | None) -> dict:
 
     return {
         "symbol": symbol,
-        "source": "TWSE GitHub Actions top 40 static JSON",
+        "source": "TWSE monthly history + TWSE MIS GitHub Actions snapshot",
         "generatedAt": taipei_now_iso(),
         "bars": bars[-260:],
     }

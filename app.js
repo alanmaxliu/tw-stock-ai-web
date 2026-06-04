@@ -21,7 +21,6 @@ const storageKeys = {
 };
 
 const universeUrl = "./data/universe.json";
-const isMobileDevice = matchMedia("(max-width: 760px)").matches || /iPhone|iPad|Android/i.test(navigator.userAgent);
 
 function normalizeSymbol(rawSymbol) {
   const value = rawSymbol.trim().toUpperCase();
@@ -40,7 +39,8 @@ function setStatus(message) {
 
 function symbolLabel(item) {
   const category = item.category === "ETF" ? "ETF" : "個股";
-  return `${category} #${item.rank}｜${item.symbol} ${item.name}｜${formatNumber(Number(item.latestClose))}`;
+  const latest = Number.isFinite(Number(item.latestClose)) ? `｜${formatNumber(Number(item.latestClose))}` : "";
+  return `${category} #${item.rank}｜${item.symbol} ${item.name}${latest}`;
 }
 
 async function loadUniverse() {
@@ -88,17 +88,6 @@ function twseMonthUrl(code, date) {
   return `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${year}${month}01&stockNo=${code}`;
 }
 
-function twseRealtimeUrl(code) {
-  const channels = [`tse_${code}.tw`, `otc_${code}.tw`].join("|");
-  const params = new URLSearchParams({
-    ex_ch: channels,
-    json: "1",
-    delay: "0",
-    _: String(Date.now()),
-  });
-  return `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?${params.toString()}`;
-}
-
 function timeoutSignal(milliseconds) {
   const controller = new AbortController();
   setTimeout(() => controller.abort(), milliseconds);
@@ -118,15 +107,6 @@ function parseTwseDate(value) {
   const parts = value.split("/").map((part) => Number(part));
   if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) return null;
   return new Date(parts[0] + 1911, parts[1] - 1, parts[2]);
-}
-
-function parseRealtimeDate(dateValue, timeValue) {
-  if (!/^\d{8}$/.test(dateValue || "") || !/^\d{2}:\d{2}:\d{2}$/.test(timeValue || "")) return null;
-  const year = Number(dateValue.slice(0, 4));
-  const month = Number(dateValue.slice(4, 6));
-  const day = Number(dateValue.slice(6, 8));
-  const [hour, minute, second] = timeValue.split(":").map((part) => Number(part));
-  return new Date(year, month - 1, day, hour, minute, second);
 }
 
 async function fetchYahooBars(symbol) {
@@ -155,7 +135,11 @@ async function fetchYahooBars(symbol) {
     });
   }
   if (bars.length < 150) throw new Error(`資料筆數不足，目前只有 ${bars.length} 筆。`);
-  return { bars, source: "Yahoo Finance" };
+  return {
+    bars,
+    source: "Yahoo Finance",
+    dataStatus: "使用外部備援資料。此路徑不是 GitHub Actions 盤中快照，資料可能延遲。",
+  };
 }
 
 async function fetchStaticBars(code) {
@@ -172,7 +156,13 @@ async function fetchStaticBars(code) {
     volume: Number(bar.volume) || 0,
   })).filter((bar) => [bar.open, bar.high, bar.low, bar.close].every(Number.isFinite));
   if (bars.length < 150) throw new Error(`靜態資料筆數不足，目前只有 ${bars.length} 筆。`);
-  return { bars, source: payload.source || "GitHub Actions static JSON", generatedAt: payload.generatedAt || "" };
+  const latestDay = bars.at(-1).date.toLocaleDateString("zh-TW");
+  const generatedAt = payload.generatedAt || "";
+  const source = payload.source || "GitHub Actions static JSON";
+  const dataStatus = generatedAt
+    ? `已讀取 GitHub Actions JSON。更新時間：${generatedAt}；最新資料日：${latestDay}。`
+    : `已讀取 GitHub Actions JSON。最新資料日：${latestDay}。`;
+  return { bars, source, generatedAt, dataStatus };
 }
 
 function recentMonthStarts(count) {
@@ -211,77 +201,28 @@ async function fetchTwseBars(code) {
   for (const bar of bars) unique.set(bar.date.toISOString().slice(0, 10), bar);
   const sorted = Array.from(unique.values()).sort((a, b) => a.date - b.date);
   if (sorted.length < 150) throw new Error(`TWSE 資料筆數不足，目前只有 ${sorted.length} 筆。`);
-  return { bars: sorted.slice(-260), source: "TWSE 月資料 API" };
-}
-
-async function fetchRealtimeQuote(code) {
-  if (!code) throw new Error("即時報價只支援台股數字代號。");
-  const response = await fetch(twseRealtimeUrl(code), { cache: "no-store", signal: timeoutSignal(2500) });
-  if (!response.ok) throw new Error(`TWSE MIS HTTP ${response.status}`);
-  const payload = await response.json();
-  const quote = (payload.msgArray || []).find((item) => item?.c === code && Number.isFinite(parseTwseNumber(item.z)));
-  if (!quote) throw new Error("TWSE MIS 查無可用盤中成交價。");
-  const price = parseTwseNumber(quote.z);
-  const open = parseTwseNumber(quote.o);
-  const high = parseTwseNumber(quote.h);
-  const low = parseTwseNumber(quote.l);
-  const volume = parseTwseNumber(quote.v);
-  const date = parseRealtimeDate(quote.d, quote.t);
-  if (!date || !Number.isFinite(price)) throw new Error("TWSE MIS 回傳格式不完整。");
   return {
-    date,
-    open: Number.isFinite(open) ? open : price,
-    high: Number.isFinite(high) ? high : price,
-    low: Number.isFinite(low) ? low : price,
-    close: price,
-    volume: Number.isFinite(volume) ? volume : 0,
-    name: quote.n || "",
+    bars: sorted.slice(-260),
+    source: "TWSE 月資料 API",
+    dataStatus: "使用 TWSE 月資料備援。此路徑不是 GitHub Actions 盤中快照，資料通常落後到最近交易日收盤資料。",
   };
-}
-
-async function mergeRealtimeQuote(result, code) {
-  if (!code) return result;
-  try {
-    const quote = await fetchRealtimeQuote(code);
-    const bars = [...result.bars];
-    const latest = bars.at(-1);
-    const quoteDay = quote.date.toISOString().slice(0, 10);
-    const latestDay = latest.date.toISOString().slice(0, 10);
-    if (quoteDay === latestDay) {
-      bars[bars.length - 1] = { ...latest, ...quote };
-    } else if (quote.date > latest.date) {
-      bars.push(quote);
-    }
-    return {
-      bars: bars.slice(-260),
-      source: `${result.source} + TWSE MIS 盤中報價`,
-      realtimeStatus: `已套用盤中報價：${quoteDay} ${quote.date.toLocaleTimeString("zh-TW")}`,
-    };
-  } catch (error) {
-    return {
-      ...result,
-      realtimeStatus: `未套用盤中報價：${error.message}`,
-    };
-  }
 }
 
 async function fetchBars(symbol, rawSymbol) {
   const errors = [];
   const code = plainTaiwanCode(rawSymbol);
   try {
-    return await mergeRealtimeQuote(await fetchStaticBars(code), code);
+    return await fetchStaticBars(code);
   } catch (error) {
     errors.push(`GitHub 靜態資料：${error.message}`);
   }
   try {
-    const yahooResult = await fetchYahooBars(symbol);
-    return { ...yahooResult, realtimeStatus: "未套用盤中報價：外部備援資料源不再等待 TWSE MIS，以避免手機瀏覽器卡住。" };
+    return await fetchYahooBars(symbol);
   } catch (error) {
     errors.push(`Yahoo Finance：${error.message}`);
   }
   try {
-    const twseResult = await fetchTwseBars(code);
-    return { ...twseResult, realtimeStatus: "未套用盤中報價：外部備援資料源不再等待 TWSE MIS，以避免手機瀏覽器卡住。" };
+    return await fetchTwseBars(code);
   } catch (error) {
     errors.push(`TWSE：${error.message}`);
   }
@@ -397,53 +338,7 @@ function annualizedVolatility(values, window = 20) {
   return stdev(returns) * Math.sqrt(252) * 100;
 }
 
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function logistic(value) {
-  return 1 / (1 + Math.exp(-value));
-}
-
-function linearRegression(values) {
-  const n = values.length;
-  const xMean = (n - 1) / 2;
-  const yMean = mean(values);
-  let numerator = 0;
-  let denominator = 0;
-  for (let index = 0; index < n; index += 1) {
-    const xDelta = index - xMean;
-    numerator += xDelta * (values[index] - yMean);
-    denominator += xDelta ** 2;
-  }
-  const slope = denominator === 0 ? 0 : numerator / denominator;
-  const intercept = yMean - slope * xMean;
-  let residualSum = 0;
-  for (let index = 0; index < n; index += 1) {
-    const fitted = intercept + slope * index;
-    residualSum += (values[index] - fitted) ** 2;
-  }
-  const residualStd = Math.sqrt(residualSum / Math.max(1, n - 2));
-  return { slope, intercept, residualStd };
-}
-
-function estimateTrendProbability(bars) {
-  const closes = bars.map((bar) => bar.close);
-  const lookback = Math.min(isMobileDevice ? 90 : 120, closes.length);
-  if (lookback < 60) throw new Error("可估算資料不足。");
-  const recent = closes.slice(-lookback).map((value) => Math.log(value));
-  const regression = linearRegression(recent);
-  const projectedLogReturn20 = regression.slope * 20;
-  const noise = Math.max(regression.residualStd, 0.0001);
-  const trendScore = projectedLogReturn20 / (noise * Math.sqrt(20));
-  const momentumScore = percentChange(closes, 20) / 8;
-  const maScore = ((closes.at(-1) / sma(closes, 60)) - 1) * 12;
-  const rsiPenalty = rsi(closes, 14) >= 70 ? -0.45 : rsi(closes, 14) <= 35 ? 0.35 : 0;
-  const probability = logistic(trendScore * 0.9 + momentumScore * 0.35 + maScore * 0.25 + rsiPenalty) * 100;
-  return clamp(probability, 5, 95);
-}
-
-function scoreAnalysis(metrics, probability) {
+function scoreAnalysis(metrics) {
   let score = 50;
   const reasons = [];
   const risks = [];
@@ -477,7 +372,6 @@ function scoreAnalysis(metrics, probability) {
   }
   if (metrics.drawdown60 >= -2) risks.push("價格貼近 60 日高點，較不適合急著投入。");
   if (metrics.volatility20 >= 28) risks.push(`20 日年化波動率 ${formatNumber(metrics.volatility20, 1)}%，波動偏高。`);
-  score += (probability - 50) * 0.35;
   score = Math.max(0, Math.min(100, Math.round(score)));
 
   let signal;
@@ -498,7 +392,7 @@ function scoreAnalysis(metrics, probability) {
   return { score, signal, action, reasons, risks };
 }
 
-function analyzeBars(symbol, bars, probability, source, realtimeStatus) {
+function analyzeBars(symbol, bars, source, dataStatus) {
   const closes = bars.map((bar) => bar.close);
   const highs = bars.map((bar) => bar.high);
   const lows = bars.map((bar) => bar.low);
@@ -530,11 +424,10 @@ function analyzeBars(symbol, bars, probability, source, realtimeStatus) {
     support60: Math.min(...lows.slice(-60)),
     resistance20: Math.max(...highs.slice(-20)),
     resistance60: Math.max(...highs.slice(-60)),
-    probability,
     source,
-    realtimeStatus,
+    dataStatus,
   };
-  return { ...metrics, ...scoreAnalysis(metrics, probability), bars };
+  return { ...metrics, ...scoreAnalysis(metrics), bars };
 }
 
 function drawChart(analysis) {
@@ -565,7 +458,7 @@ function drawChart(analysis) {
   ctx.fillText(`${analysis.symbol} 技術分析`, margin.left, 36);
   ctx.font = "15px Microsoft JhengHei, sans-serif";
   ctx.fillStyle = "#64748b";
-  ctx.fillText(`收盤 ${formatNumber(analysis.current)} ｜ 分數 ${analysis.score}/100 ｜ 線性迴歸上漲機率 ${formatNumber(analysis.probability, 1)}%`, margin.left, 58);
+  ctx.fillText(`最新價 ${formatNumber(analysis.current)} ｜ 技術分數 ${analysis.score}/100 ｜ RSI14 ${formatNumber(analysis.rsi14, 1)}`, margin.left, 58);
 
   ctx.strokeStyle = "#cbd5e1";
   ctx.strokeRect(margin.left, margin.top, width - margin.left - margin.right, margin.priceBottom - margin.top);
@@ -616,13 +509,12 @@ function buildReport(analysis) {
 核心結論
 - 今日訊號：${analysis.signal}
 - 技術分數：${analysis.score}/100
-- 線性迴歸未來 20 個交易日上漲機率：${formatNumber(analysis.probability, 1)}%
 - 行動參考：${analysis.action}
 - 資料來源：${analysis.source}
-- 盤中報價狀態：${analysis.realtimeStatus || "未執行盤中報價檢查"}
+- 資料更新狀態：${analysis.dataStatus || "未取得資料更新狀態"}
 
 價格與趨勢
-- 最新收盤：${formatNumber(analysis.current)}
+- 最新價：${formatNumber(analysis.current)}
 - MA20 / MA60 / MA120：${formatNumber(analysis.ma20)} / ${formatNumber(analysis.ma60)} / ${formatNumber(analysis.ma120)}
 - 20 日報酬：${formatNumber(analysis.return20)}%
 - 60 日報酬：${formatNumber(analysis.return60)}%
@@ -643,18 +535,18 @@ ${analysis.reasons.map((item) => `- ${item}`).join("\n")}
 ${analysis.risks.map((item) => `- ${item}`).join("\n")}
 
 風險聲明
-此報告只依公開價格資料、線性迴歸趨勢估算與技術指標產生量化觀察。線性迴歸模型無法理解新聞、籌碼與突發事件，不是保證獲利建議，也不是個人化投資建議。`;
+此報告只依公開價格資料與技術指標產生量化觀察，不包含模型預測或保證獲利判斷，也不是個人化投資建議。`;
 }
 
 function updateUi(analysis) {
   $("#signal-label").textContent = analysis.signal;
-  $("#probability-label").textContent = `${formatNumber(analysis.probability, 1)}%`;
+  $("#probability-label").textContent = analysis.date.toLocaleDateString("zh-TW");
   $("#score-label").textContent = `${analysis.score}/100`;
   $("#price-label").textContent = formatNumber(analysis.current);
   $("#source-label").textContent = analysis.source;
   $("#analysis-text").textContent = `最新交易日：${analysis.date.toLocaleDateString("zh-TW")}
 資料來源：${analysis.source}
-盤中報價狀態：${analysis.realtimeStatus || "未執行盤中報價檢查"}
+資料更新狀態：${analysis.dataStatus || "未取得資料更新狀態"}
 MA20 / MA60 / MA120：${formatNumber(analysis.ma20)} / ${formatNumber(analysis.ma60)} / ${formatNumber(analysis.ma120)}
 RSI14：${formatNumber(analysis.rsi14, 1)}
 MACD Histogram：${formatNumber(analysis.macdHist, 3)}
@@ -714,17 +606,16 @@ async function runAnalysis(event) {
   try {
     if (!rawSymbol) throw new Error("請先從下拉選單選擇標的。");
     setStatus(`讀取 ${symbol} 行情資料。系統會優先讀取 GitHub Actions 產生的熱門 40 檔靜態 JSON。`);
-    const { bars, source, realtimeStatus } = await fetchBars(symbol, rawSymbol);
-    setStatus("使用線性迴歸快速估算趨勢並計算技術指標。");
-    const probability = estimateTrendProbability(bars);
-    const analysis = analyzeBars(symbol, bars, probability, source, realtimeStatus);
+    const { bars, source, dataStatus } = await fetchBars(symbol, rawSymbol);
+    setStatus("計算即時資料狀態與技術指標。");
+    const analysis = analyzeBars(symbol, bars, source, dataStatus);
     drawChart(analysis);
     updateUi(analysis);
     state.lastTimestamp = timestampName();
     state.lastReport = buildReport(analysis);
     downloadReportButton.disabled = false;
     downloadChartButton.disabled = false;
-    setStatus(`分析完成：${analysis.signal}，線性迴歸上漲機率 ${formatNumber(analysis.probability, 1)}%。\n資料來源：${source}\n盤中報價狀態：${realtimeStatus || "未執行盤中報價檢查"}`);
+    setStatus(`分析完成：${analysis.signal}。\n資料來源：${source}\n資料更新狀態：${dataStatus || "未取得資料更新狀態"}`);
   } catch (error) {
     setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 請確認 GitHub Actions 已成功產生 data/universe.json 與該股票的 data/stocks/{代號}.json。`);
   } finally {
@@ -762,7 +653,6 @@ requestAnimationFrame(() => {
     })),
     current: 94,
     score: 0,
-    probability: 0,
     signal: "等待分析",
     ma20: 93,
     ma60: 90,
