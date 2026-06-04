@@ -13,7 +13,7 @@
 
 GitHub Actions 設定必須放在 `.github/workflows/update-stock-data.yml`，`.github` 不能改名。
 
-盤中排程設定為台灣時間週一到週五 09:00 到 13:30 每 5 分鐘更新一次，14:00 收盤後再更新一次。Actions 產生的是靜態 JSON，不是秒級即時串流；實際執行時間會受 GitHub Actions 排程佇列影響。
+盤中排程設定為台灣時間週一到週五 09:03 到 13:33 約每 10 分鐘更新一次，14:07 收盤後再更新一次。Actions 產生的是靜態 JSON，不是秒級即時串流；實際執行時間會受 GitHub Actions 排程佇列影響。
 
 ## 效能
 

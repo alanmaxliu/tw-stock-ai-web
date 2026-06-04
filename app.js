@@ -14,11 +14,6 @@ const canvas = $("#price-chart");
 const ctx = canvas.getContext("2d");
 const downloadReportButton = $("#download-report");
 const downloadChartButton = $("#download-chart");
-const root = document.documentElement;
-
-const storageKeys = {
-  theme: "twStockAiTheme",
-};
 
 const universeUrl = "./data/universe.json";
 
@@ -577,24 +572,6 @@ function timestampName() {
   return new Date().toISOString().replaceAll(":", "").replaceAll("-", "").slice(0, 15);
 }
 
-function applyTheme(choice) {
-  const theme = ["system", "light", "dark"].includes(choice) ? choice : "system";
-  if (theme === "system") root.removeAttribute("data-theme");
-  else root.dataset.theme = theme;
-  localStorage.setItem(storageKeys.theme, theme);
-  document.querySelectorAll("[data-theme-choice]").forEach((button) => {
-    button.setAttribute("aria-pressed", String(button.dataset.themeChoice === theme));
-  });
-}
-
-function initTheme() {
-  const saved = localStorage.getItem(storageKeys.theme) || "system";
-  applyTheme(saved);
-  document.querySelectorAll("[data-theme-choice]").forEach((button) => {
-    button.addEventListener("click", () => applyTheme(button.dataset.themeChoice));
-  });
-}
-
 async function runAnalysis(event) {
   event.preventDefault();
   const rawSymbol = symbolInput.value;
@@ -642,7 +619,6 @@ downloadChartButton.addEventListener("click", () => {
   }, "image/png");
 });
 
-initTheme();
 loadUniverse();
 requestAnimationFrame(() => {
   drawChart({
