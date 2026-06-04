@@ -20,6 +20,7 @@ ETF_CANDIDATE_COUNT = 32
 STOCK_CANDIDATE_COUNT = 32
 SSL_CONTEXT = ssl._create_unverified_context()
 TAIPEI_TZ = timezone(timedelta(hours=8))
+FALLBACK_MARK = "reused previous JSON because live update failed"
 
 
 def taipei_now_iso() -> str:
@@ -219,6 +220,35 @@ def fetch_top_universe() -> list[dict]:
     return universe
 
 
+def load_existing_universe() -> list[dict]:
+    if not UNIVERSE_FILE.exists():
+        return []
+    try:
+        payload = json.loads(UNIVERSE_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"existing universe is not usable: {exc}")
+        return []
+    symbols = payload.get("symbols", [])
+    return symbols if isinstance(symbols, list) else []
+
+
+def load_existing_payload(symbol: str) -> dict | None:
+    path = OUTPUT_DIR / f"{symbol}.json"
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"existing payload is not usable for {symbol}: {exc}")
+        return None
+    bars = payload.get("bars", [])
+    if not isinstance(bars, list) or not bars:
+        return None
+    payload["source"] = f"{payload.get('source', 'Previous GitHub Actions JSON')} + {FALLBACK_MARK}"
+    payload["generatedAt"] = taipei_now_iso()
+    return payload
+
+
 def fetch_symbol_history(symbol: str, quote: dict | None) -> dict:
     try:
         return fetch_symbol_history_yahoo(symbol, quote)
@@ -335,7 +365,15 @@ def cleanup_stale_files(active_symbols: set[str]) -> None:
 def main() -> None:
     DATA_DIR.mkdir(exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    universe = fetch_top_universe()
+    existing_universe = load_existing_universe()
+    try:
+        universe = fetch_top_universe()
+    except Exception as exc:
+        if not existing_universe:
+            print(f"failed to fetch top universe and no existing universe is available: {exc}")
+            return
+        print(f"failed to fetch top universe; reusing existing universe: {exc}")
+        universe = existing_universe
     symbols = [item["symbol"] for item in universe]
     quotes = fetch_realtime_quotes(symbols)
     def update_one(item: dict) -> tuple[dict | None, str | None]:
@@ -355,6 +393,20 @@ def main() -> None:
                 "updatedAt": payload["generatedAt"],
             }, None
         except Exception as exc:
+            existing_payload = load_existing_payload(symbol)
+            if existing_payload:
+                latest = existing_payload["bars"][-1]
+                (OUTPUT_DIR / f"{symbol}.json").write_text(
+                    json.dumps(existing_payload, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                return {
+                    **item,
+                    "latestClose": latest.get("close"),
+                    "latestDate": latest.get("date"),
+                    "updatedAt": existing_payload["generatedAt"],
+                    "stale": True,
+                }, f"{symbol}: live update failed; reused previous JSON: {exc}"
             return None, f"{symbol}: {exc}"
 
     final_universe = []
@@ -373,6 +425,10 @@ def main() -> None:
     final_etfs = [item for item in final_universe if item["category"] == "ETF"][:TOP_ETF_COUNT]
     final_stocks = [item for item in final_universe if item["category"] == "STOCK"][:TOP_STOCK_COUNT]
     final_universe = final_etfs + final_stocks
+    if not final_universe:
+        print("no symbols were updated; keeping previous repository data without failing workflow")
+        return
+
     active_symbols = {item["symbol"] for item in final_universe}
 
     cleanup_stale_files(active_symbols)
@@ -394,8 +450,6 @@ def main() -> None:
         print("Failures:")
         for failure in failures:
             print(f"- {failure}")
-    if not final_universe:
-        raise SystemExit(1)
 
 
 if __name__ == "__main__":
