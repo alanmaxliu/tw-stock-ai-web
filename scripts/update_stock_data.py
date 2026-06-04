@@ -16,8 +16,8 @@ UNIVERSE_FILE = DATA_DIR / "universe.json"
 MONTH_COUNT = 14
 TOP_ETF_COUNT = 20
 TOP_STOCK_COUNT = 20
-ETF_CANDIDATE_COUNT = 45
-STOCK_CANDIDATE_COUNT = 45
+ETF_CANDIDATE_COUNT = 32
+STOCK_CANDIDATE_COUNT = 32
 SSL_CONTEXT = ssl._create_unverified_context()
 
 
@@ -41,7 +41,7 @@ def recent_months(count: int) -> list[datetime]:
 
 def fetch_text(url: str) -> str:
     last_error: Exception | None = None
-    for attempt in range(3):
+    for attempt in range(2):
         request = Request(
             url,
             headers={
@@ -51,11 +51,11 @@ def fetch_text(url: str) -> str:
             },
         )
         try:
-            with urlopen(request, timeout=45, context=SSL_CONTEXT) as response:
+            with urlopen(request, timeout=16, context=SSL_CONTEXT) as response:
                 return response.read().decode("utf-8", errors="replace")
         except Exception as exc:
             last_error = exc
-            time.sleep(1.5 * (attempt + 1))
+            time.sleep(0.8 * (attempt + 1))
     raise last_error or RuntimeError(f"Failed to fetch {url}")
 
 
@@ -358,7 +358,7 @@ def main() -> None:
 
     final_universe = []
     failures = []
-    with ThreadPoolExecutor(max_workers=20) as executor:
+    with ThreadPoolExecutor(max_workers=24) as executor:
         futures = [executor.submit(update_one, item) for item in universe]
         for future in as_completed(futures):
             item, failure = future.result()

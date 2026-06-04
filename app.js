@@ -397,60 +397,50 @@ function annualizedVolatility(values, window = 20) {
   return stdev(returns) * Math.sqrt(252) * 100;
 }
 
-function buildFeatures(closes, index) {
-  const slice = closes.slice(0, index + 1);
-  const current = slice.at(-1);
-  const ma20 = sma(slice, 20);
-  const ma60 = sma(slice, 60);
-  const rsi14 = rsi(slice, 14);
-  const m = macd(slice);
-  const pRank = percentileRank(slice.slice(-180), current);
-  const ret5 = percentChange(slice, 5);
-  const ret20 = percentChange(slice, 20);
-  return [
-    current / ma20 - 1,
-    current / ma60 - 1,
-    (rsi14 - 50) / 50,
-    m.hist / current,
-    (pRank - 50) / 50,
-    ret5 / 20,
-    ret20 / 40,
-  ];
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
-async function trainProbabilityModel(bars) {
-  if (!window.tf) throw new Error("TensorFlow.js 尚未載入。");
-  const closes = bars.map((bar) => bar.close);
-  const xs = [];
-  const ys = [];
-  const horizon = 20;
-  const startIndex = isMobileDevice ? Math.max(80, closes.length - 140) : 80;
-  for (let index = startIndex; index < closes.length - horizon; index += 1) {
-    xs.push(buildFeatures(closes, index));
-    ys.push(closes[index + horizon] > closes[index] ? 1 : 0);
+function logistic(value) {
+  return 1 / (1 + Math.exp(-value));
+}
+
+function linearRegression(values) {
+  const n = values.length;
+  const xMean = (n - 1) / 2;
+  const yMean = mean(values);
+  let numerator = 0;
+  let denominator = 0;
+  for (let index = 0; index < n; index += 1) {
+    const xDelta = index - xMean;
+    numerator += xDelta * (values[index] - yMean);
+    denominator += xDelta ** 2;
   }
-  if (xs.length < 40) throw new Error("可訓練資料不足。");
+  const slope = denominator === 0 ? 0 : numerator / denominator;
+  const intercept = yMean - slope * xMean;
+  let residualSum = 0;
+  for (let index = 0; index < n; index += 1) {
+    const fitted = intercept + slope * index;
+    residualSum += (values[index] - fitted) ** 2;
+  }
+  const residualStd = Math.sqrt(residualSum / Math.max(1, n - 2));
+  return { slope, intercept, residualStd };
+}
 
-  const xTensor = tf.tensor2d(xs);
-  const yTensor = tf.tensor2d(ys, [ys.length, 1]);
-  const model = tf.sequential();
-  model.add(tf.layers.dense({ units: 12, activation: "relu", inputShape: [xs[0].length] }));
-  model.add(tf.layers.dense({ units: 6, activation: "relu" }));
-  model.add(tf.layers.dense({ units: 1, activation: "sigmoid" }));
-  model.compile({ optimizer: tf.train.adam(0.018), loss: "binaryCrossentropy" });
-  await model.fit(xTensor, yTensor, {
-    epochs: isMobileDevice ? 24 : 45,
-    batchSize: isMobileDevice ? 24 : 16,
-    verbose: 0,
-    shuffle: true,
-  });
-
-  const latest = tf.tensor2d([buildFeatures(closes, closes.length - 1)]);
-  const prediction = model.predict(latest);
-  const probability = (await prediction.data())[0] * 100;
-  tf.dispose([xTensor, yTensor, latest, prediction]);
-  model.dispose();
-  return probability;
+function estimateTrendProbability(bars) {
+  const closes = bars.map((bar) => bar.close);
+  const lookback = Math.min(isMobileDevice ? 90 : 120, closes.length);
+  if (lookback < 60) throw new Error("可估算資料不足。");
+  const recent = closes.slice(-lookback).map((value) => Math.log(value));
+  const regression = linearRegression(recent);
+  const projectedLogReturn20 = regression.slope * 20;
+  const noise = Math.max(regression.residualStd, 0.0001);
+  const trendScore = projectedLogReturn20 / (noise * Math.sqrt(20));
+  const momentumScore = percentChange(closes, 20) / 8;
+  const maScore = ((closes.at(-1) / sma(closes, 60)) - 1) * 12;
+  const rsiPenalty = rsi(closes, 14) >= 70 ? -0.45 : rsi(closes, 14) <= 35 ? 0.35 : 0;
+  const probability = logistic(trendScore * 0.9 + momentumScore * 0.35 + maScore * 0.25 + rsiPenalty) * 100;
+  return clamp(probability, 5, 95);
 }
 
 function scoreAnalysis(metrics, probability) {
@@ -575,7 +565,7 @@ function drawChart(analysis) {
   ctx.fillText(`${analysis.symbol} 技術分析`, margin.left, 36);
   ctx.font = "15px Microsoft JhengHei, sans-serif";
   ctx.fillStyle = "#64748b";
-  ctx.fillText(`收盤 ${formatNumber(analysis.current)} ｜ 分數 ${analysis.score}/100 ｜ AI 上漲機率 ${formatNumber(analysis.probability, 1)}%`, margin.left, 58);
+  ctx.fillText(`收盤 ${formatNumber(analysis.current)} ｜ 分數 ${analysis.score}/100 ｜ 線性迴歸上漲機率 ${formatNumber(analysis.probability, 1)}%`, margin.left, 58);
 
   ctx.strokeStyle = "#cbd5e1";
   ctx.strokeRect(margin.left, margin.top, width - margin.left - margin.right, margin.priceBottom - margin.top);
@@ -626,7 +616,7 @@ function buildReport(analysis) {
 核心結論
 - 今日訊號：${analysis.signal}
 - 技術分數：${analysis.score}/100
-- AI 未來 20 個交易日上漲機率：${formatNumber(analysis.probability, 1)}%
+- 線性迴歸未來 20 個交易日上漲機率：${formatNumber(analysis.probability, 1)}%
 - 行動參考：${analysis.action}
 - 資料來源：${analysis.source}
 - 盤中報價狀態：${analysis.realtimeStatus || "未執行盤中報價檢查"}
@@ -653,7 +643,7 @@ ${analysis.reasons.map((item) => `- ${item}`).join("\n")}
 ${analysis.risks.map((item) => `- ${item}`).join("\n")}
 
 風險聲明
-此報告只依公開價格資料與 TensorFlow.js 訓練出的簡化模型產生量化觀察，不是保證獲利建議，也不是個人化投資建議。`;
+此報告只依公開價格資料、線性迴歸趨勢估算與技術指標產生量化觀察。線性迴歸模型無法理解新聞、籌碼與突發事件，不是保證獲利建議，也不是個人化投資建議。`;
 }
 
 function updateUi(analysis) {
@@ -725,8 +715,8 @@ async function runAnalysis(event) {
     if (!rawSymbol) throw new Error("請先從下拉選單選擇標的。");
     setStatus(`讀取 ${symbol} 行情資料。系統會優先讀取 GitHub Actions 產生的熱門 40 檔靜態 JSON。`);
     const { bars, source, realtimeStatus } = await fetchBars(symbol, rawSymbol);
-    setStatus("訓練 TensorFlow.js 模型並計算技術指標。");
-    const probability = await trainProbabilityModel(bars);
+    setStatus("使用線性迴歸快速估算趨勢並計算技術指標。");
+    const probability = estimateTrendProbability(bars);
     const analysis = analyzeBars(symbol, bars, probability, source, realtimeStatus);
     drawChart(analysis);
     updateUi(analysis);
@@ -734,7 +724,7 @@ async function runAnalysis(event) {
     state.lastReport = buildReport(analysis);
     downloadReportButton.disabled = false;
     downloadChartButton.disabled = false;
-    setStatus(`分析完成：${analysis.signal}，AI 上漲機率 ${formatNumber(analysis.probability, 1)}%。\n資料來源：${source}\n盤中報價狀態：${realtimeStatus || "未執行盤中報價檢查"}`);
+    setStatus(`分析完成：${analysis.signal}，線性迴歸上漲機率 ${formatNumber(analysis.probability, 1)}%。\n資料來源：${source}\n盤中報價狀態：${realtimeStatus || "未執行盤中報價檢查"}`);
   } catch (error) {
     setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 請確認 GitHub Actions 已成功產生 data/universe.json 與該股票的 data/stocks/{代號}.json。`);
   } finally {

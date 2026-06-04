@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>台股 AI 技術分析工具</title>
     <link rel="stylesheet" href="./styles.css" />
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js" defer></script>
     <script src="./app.js" defer></script>
   </head>
   <body>
@@ -14,7 +13,7 @@
         <div class="brand-block">
           <p class="eyebrow">Taiwan Stock AI Lab</p>
           <h1>台股 AI 技術分析工具</h1>
-          <p class="subtitle">從 GitHub Actions 更新的 40 檔熱門台股清單挑選標的，使用 TensorFlow.js 與技術指標產生投入觀察報告；若 JSON 不存在，會嘗試從外部公開資料源補抓。</p>
+          <p class="subtitle">從 GitHub Actions 更新的 40 檔熱門台股清單挑選標的，使用線性迴歸趨勢估算與技術指標產生投入觀察報告；若 JSON 不存在，會嘗試從外部公開資料源補抓。</p>
         </div>
 
         <div class="theme-control" aria-label="主題設定">
@@ -46,7 +45,7 @@
 
         <section class="notice">
           <h2>使用限制</h2>
-          <p>這是純前端工具，不會把查詢紀錄存到雲端。盤中資料優先使用 GitHub Actions 定時產生的 JSON；若 JSON 不存在，前端會嘗試外部公開資料源，但速度與可用性會受瀏覽器限制影響。</p>
+          <p>這是純前端工具，不會把查詢紀錄存到雲端。盤中資料優先使用 GitHub Actions 定時產生的 JSON；若 JSON 不存在，前端會嘗試外部公開資料源，但速度與可用性會受瀏覽器限制影響。線性迴歸只用於快速趨勢估算，準確度有限，分析結果只供研究參考。</p>
         </section>
       </section>
 
@@ -57,7 +56,7 @@
             <strong id="signal-label">尚未分析</strong>
           </article>
           <article class="metric-card">
-            <span>AI 上漲機率</span>
+            <span>線性迴歸機率</span>
             <strong id="probability-label">--</strong>
           </article>
           <article class="metric-card">
