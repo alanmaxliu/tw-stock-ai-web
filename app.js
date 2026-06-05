@@ -14,7 +14,6 @@ const canvas = $("#price-chart");
 const ctx = canvas.getContext("2d");
 const downloadReportButton = $("#download-report");
 const downloadChartButton = $("#download-chart");
-const stockOptions = $("#stock-options");
 const quickSymbolSelect = $("#quick-symbol-select");
 
 const universeUrl = "./data/universe.json";
@@ -45,7 +44,7 @@ function resetQuickSelect() {
   quickSymbolSelect.innerHTML = "";
   const placeholder = document.createElement("option");
   placeholder.value = "";
-  placeholder.textContent = "快速選擇熱門 40 檔";
+  placeholder.textContent = "選擇後會帶入左側輸入框";
   quickSymbolSelect.appendChild(placeholder);
 }
 
@@ -57,15 +56,8 @@ async function loadUniverse() {
     const payload = await response.json();
     const symbols = Array.isArray(payload.symbols) ? payload.symbols : [];
     if (symbols.length === 0) throw new Error("熱門清單是空的。");
-    stockOptions.innerHTML = "";
     resetQuickSelect();
     for (const item of symbols) {
-      const option = document.createElement("option");
-      option.value = item.symbol;
-      option.label = symbolLabel(item);
-      option.dataset.category = item.category || "";
-      stockOptions.appendChild(option);
-
       const quickOption = document.createElement("option");
       quickOption.value = item.symbol;
       quickOption.textContent = symbolLabel(item);
@@ -74,7 +66,6 @@ async function loadUniverse() {
     analyzeButton.disabled = false;
     setStatus(`已載入 ${symbols.length} 檔熱門提示。可直接輸入任意台股代號，或用下拉選單快速帶入。更新時間：${payload.generatedAt || "--"}`);
   } catch (error) {
-    stockOptions.innerHTML = "";
     resetQuickSelect();
     analyzeButton.disabled = false;
     setStatus(`Status: WARN\nRoot Cause: 無法載入熱門提示 data/universe.json：${error.message}\nSuggested Fix: 仍可手動輸入股票代號；若要恢復熱門提示，確認 GitHub Actions 已成功產生 data/universe.json。`);

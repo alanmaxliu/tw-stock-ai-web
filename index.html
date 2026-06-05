@@ -17,16 +17,20 @@
         </div>
 
         <form id="analysis-form" class="analysis-form">
-          <label for="symbol-input">股票代號</label>
           <div class="input-row">
-            <input id="symbol-input" name="symbol" list="stock-options" inputmode="numeric" placeholder="輸入台股代號，例如 0050" />
-            <select id="quick-symbol-select" name="quick-symbol" aria-label="快速選擇熱門 40 檔">
-              <option value="">快速選擇熱門 40 檔</option>
-            </select>
-            <datalist id="stock-options"></datalist>
+            <label class="field-control" for="symbol-input">
+              <span>手動輸入股票代號</span>
+              <input id="symbol-input" name="symbol" inputmode="numeric" autocomplete="off" placeholder="例如 0050、2330、2603" />
+            </label>
+            <label class="field-control" for="quick-symbol-select">
+              <span>熱門 40 檔快速選擇</span>
+              <select id="quick-symbol-select" name="quick-symbol">
+                <option value="">選擇後會帶入左側輸入框</option>
+              </select>
+            </label>
             <button id="analyze-button" type="submit">開始分析</button>
           </div>
-          <p class="field-hint">可直接輸入任意台股代號，也可用下拉選單快速帶入熱門 40 檔；下拉選單不會被輸入框內容過濾。</p>
+          <p class="field-hint">左側可輸入任意台股代號；右側只用來快速帶入熱門 40 檔，不限制可查詢的股票範圍。</p>
         </form>
 
         <div class="status-box" id="status-box">等待輸入股票代號。</div>

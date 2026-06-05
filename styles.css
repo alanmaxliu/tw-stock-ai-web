@@ -126,7 +126,8 @@ h2 {
   margin-top: 28px;
 }
 
-.analysis-form label {
+.analysis-form label,
+.field-control span {
   color: var(--muted);
   font-size: 14px;
   font-weight: 700;
@@ -136,6 +137,12 @@ h2 {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(210px, 0.9fr) auto;
   gap: 10px;
+  align-items: end;
+}
+
+.field-control {
+  display: grid;
+  gap: 7px;
 }
 
 input,
