@@ -77,6 +77,55 @@ function formatNumber(value, digits = 2) {
   return value.toFixed(digits);
 }
 
+function formatTaiwanDate(date) {
+  return date.toLocaleDateString("zh-TW", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+function formatTaiwanDateTime(date) {
+  return date.toLocaleString("zh-TW", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function publicPriceType(rawType = "") {
+  if (rawType.includes("成交")) return "盤中成交價";
+  if (rawType.includes("買賣") || rawType.includes("買一") || rawType.includes("賣一")) return "盤中參考價";
+  if (rawType.includes("昨收") || rawType.includes("收盤")) return "收盤價";
+  return "最新參考價";
+}
+
+function scoreNote(score) {
+  if (score >= 72) return "條件偏佳，可分批觀察。";
+  if (score >= 58) return "中性偏多，等待較好價格。";
+  if (score >= 42) return "中性區間，不適合追價。";
+  return "風險偏高，先等待。";
+}
+
+function publicSourceLabel(source = "") {
+  if (source.includes("TWSE")) return "交易所公開資料";
+  if (source.includes("Yahoo") || source.includes("Worker") || source.includes("GitHub")) return "公開行情資料";
+  return source || "公開行情資料";
+}
+
+function publicFetchError(message = "") {
+  return message
+    .replaceAll("Cloudflare Worker", "即時行情")
+    .replaceAll("Worker", "即時行情")
+    .replaceAll("GitHub 靜態資料", "預存資料")
+    .replaceAll("GitHub Actions static JSON", "預存資料")
+    .replaceAll("Yahoo Finance", "公開備援資料")
+    .replaceAll("TWSE 月資料 API", "交易所公開資料");
+}
+
 function yahooChartUrl(symbol) {
   const params = new URLSearchParams({
     range: "1y",
@@ -137,6 +186,9 @@ function clearResults() {
   $("#score-label").textContent = "--";
   $("#price-label").textContent = "--";
   $("#source-label").textContent = "--";
+  $("#score-note").textContent = "尚未分析";
+  $("#price-note").textContent = "尚未分析";
+  $("#source-note").textContent = "--";
   $("#analysis-text").textContent = "尚未產生分析。";
   $("#action-text").textContent = "請先執行分析。";
   state.lastReport = "";
@@ -190,10 +242,14 @@ async function fetchWorkerBars(code) {
   })).filter((bar) => [bar.open, bar.high, bar.low, bar.close].every(Number.isFinite));
   if (bars.length < 60) throw new Error(`Worker 歷史資料不足，目前只有 ${bars.length} 筆。`);
   const quote = payload.quote || {};
+  const quoteTime = quote.date ? parseWorkerDate(quote.date, quote.time) : bars.at(-1).date;
+  const priceLabel = publicPriceType(quote.priceType || "");
   return {
     bars,
     source: payload.source || "Cloudflare Worker",
-    dataStatus: `已讀取 Worker 即時資料：${quote.name ? `${quote.symbol} ${quote.name}` : code}，價格類型：${quote.priceType || "最新參考價"}，快取 ${payload.cachedForSeconds || 0} 秒。`,
+    sourceLabel: "公開行情資料",
+    dataStatus: `最新價格：${priceLabel}，時間：${formatTaiwanDateTime(quoteTime)}。`,
+    priceNote: `${priceLabel}，${formatTaiwanDateTime(quoteTime)}`,
     stockName: quote.name || "",
   };
 }
@@ -227,7 +283,9 @@ async function fetchYahooBars(symbol) {
   return {
     bars,
     source: "Yahoo Finance",
-    dataStatus: "使用外部備援資料。此路徑不是 GitHub Actions 盤中快照，資料可能延遲。",
+    sourceLabel: "公開行情資料",
+    dataStatus: `最新資料日：${formatTaiwanDate(bars.at(-1).date)}。`,
+    priceNote: `收盤價，${formatTaiwanDate(bars.at(-1).date)}`,
   };
 }
 
@@ -244,15 +302,18 @@ async function mergeWorkerQuote(result, code) {
     } else if (quote.date > latest.date) {
       bars.push(quote);
     }
+    const priceLabel = publicPriceType(quote.priceType);
     return {
       bars: bars.slice(-260),
       source: `${result.source} + Cloudflare Worker 即時報價`,
-      dataStatus: `已套用 Worker 報價：${quoteDay} ${quote.date.toLocaleTimeString("zh-TW")}，價格類型：${quote.priceType}。`,
+      sourceLabel: "公開行情資料",
+      dataStatus: `最新價格：${priceLabel}，時間：${formatTaiwanDateTime(quote.date)}。`,
+      priceNote: `${priceLabel}，${formatTaiwanDateTime(quote.date)}`,
     };
   } catch (error) {
     return {
       ...result,
-      dataStatus: `${result.dataStatus || "已讀取歷史資料。"} Worker 即時報價未套用：${error.message}`,
+      dataStatus: result.dataStatus || "已讀取歷史資料。",
     };
   }
 }
@@ -275,9 +336,9 @@ async function fetchStaticBars(code) {
   const generatedAt = payload.generatedAt || "";
   const source = payload.source || "GitHub Actions static JSON";
   const dataStatus = generatedAt
-    ? `已讀取 GitHub Actions JSON。更新時間：${generatedAt}；最新資料日：${latestDay}。`
-    : `已讀取 GitHub Actions JSON。最新資料日：${latestDay}。`;
-  return { bars, source, generatedAt, dataStatus };
+    ? `最新資料日：${latestDay}。`
+    : `最新資料日：${latestDay}。`;
+  return { bars, source, sourceLabel: "預存行情資料", generatedAt, dataStatus, priceNote: `收盤價，${latestDay}` };
 }
 
 function recentMonthStarts(count) {
@@ -319,7 +380,9 @@ async function fetchTwseBars(code) {
   return {
     bars: sorted.slice(-260),
     source: "TWSE 月資料 API",
-    dataStatus: "使用 TWSE 月資料備援。此路徑不是 GitHub Actions 盤中快照，資料通常落後到最近交易日收盤資料。",
+    sourceLabel: "交易所公開資料",
+    dataStatus: `最新資料日：${formatTaiwanDate(sorted.at(-1).date)}。`,
+    priceNote: `收盤價，${formatTaiwanDate(sorted.at(-1).date)}`,
   };
 }
 
@@ -329,22 +392,22 @@ async function fetchBars(symbol, rawSymbol) {
   try {
     return await fetchWorkerBars(code);
   } catch (error) {
-    errors.push(`Cloudflare Worker：${error.message}`);
+    errors.push(`即時行情：${publicFetchError(error.message)}`);
   }
   try {
     return await mergeWorkerQuote(await fetchStaticBars(code), code);
   } catch (error) {
-    errors.push(`GitHub 靜態資料：${error.message}`);
+    errors.push(`預存資料：${publicFetchError(error.message)}`);
   }
   try {
     return await mergeWorkerQuote(await fetchYahooBars(symbol), code);
   } catch (error) {
-    errors.push(`Yahoo Finance：${error.message}`);
+    errors.push(`公開備援資料：${publicFetchError(error.message)}`);
   }
   try {
     return await mergeWorkerQuote(await fetchTwseBars(code), code);
   } catch (error) {
-    errors.push(`TWSE：${error.message}`);
+    errors.push(`交易所公開資料：${publicFetchError(error.message)}`);
   }
   throw new Error(errors.join("\n"));
 }
@@ -512,7 +575,7 @@ function scoreAnalysis(metrics) {
   return { score, signal, action, reasons, risks };
 }
 
-function analyzeBars(symbol, bars, source, dataStatus, stockName = "") {
+function analyzeBars(symbol, bars, source, dataStatus, stockName = "", sourceLabel = "", priceNote = "") {
   const closes = bars.map((bar) => bar.close);
   const highs = bars.map((bar) => bar.high);
   const lows = bars.map((bar) => bar.low);
@@ -546,7 +609,9 @@ function analyzeBars(symbol, bars, source, dataStatus, stockName = "") {
     resistance20: Math.max(...highs.slice(-20)),
     resistance60: Math.max(...highs.slice(-60)),
     source,
+    sourceLabel: sourceLabel || publicSourceLabel(source),
     dataStatus,
+    priceNote: priceNote || `收盤價，${formatTaiwanDate(bars.at(-1).date)}`,
   };
   return { ...metrics, ...scoreAnalysis(metrics), bars };
 }
@@ -631,13 +696,13 @@ function buildReport(analysis) {
 
 核心結論
 - 今日訊號：${analysis.signal}
-- 技術分數：${analysis.score}/100
+- 技術分數：${analysis.score}/100（${scoreNote(analysis.score)}）
 - 行動參考：${analysis.action}
-- 資料來源：${analysis.source}
-- 資料更新狀態：${analysis.dataStatus || "未取得資料更新狀態"}
+- 資料來源：${analysis.sourceLabel}
+- 價格時間：${analysis.priceNote}
 
 價格與趨勢
-- 最新價：${formatNumber(analysis.current)}
+- 最新價：${formatNumber(analysis.current)}（${analysis.priceNote}）
 - MA20 / MA60 / MA120：${formatNumber(analysis.ma20)} / ${formatNumber(analysis.ma60)} / ${formatNumber(analysis.ma120)}
 - 20 日報酬：${formatNumber(analysis.return20)}%
 - 60 日報酬：${formatNumber(analysis.return60)}%
@@ -663,13 +728,16 @@ ${analysis.risks.map((item) => `- ${item}`).join("\n")}
 
 function updateUi(analysis) {
   $("#signal-label").textContent = analysis.stockName ? `${analysis.symbol} ${analysis.stockName}` : analysis.signal;
-  $("#probability-label").textContent = analysis.date.toLocaleDateString("zh-TW");
+  $("#probability-label").textContent = formatTaiwanDate(analysis.date);
   $("#score-label").textContent = `${analysis.score}/100`;
+  $("#score-note").textContent = scoreNote(analysis.score);
   $("#price-label").textContent = formatNumber(analysis.current);
-  $("#source-label").textContent = analysis.source;
-  $("#analysis-text").textContent = `最新交易日：${analysis.date.toLocaleDateString("zh-TW")}
-資料來源：${analysis.source}
-資料更新狀態：${analysis.dataStatus || "未取得資料更新狀態"}
+  $("#price-note").textContent = analysis.priceNote;
+  $("#source-label").textContent = analysis.sourceLabel;
+  $("#source-note").textContent = "即時或收盤公開行情";
+  $("#analysis-text").textContent = `最新價格：${formatNumber(analysis.current)}（${analysis.priceNote}）
+資料來源：${analysis.sourceLabel}
+技術分數：${analysis.score}/100（${scoreNote(analysis.score)}）
 MA20 / MA60 / MA120：${formatNumber(analysis.ma20)} / ${formatNumber(analysis.ma60)} / ${formatNumber(analysis.ma120)}
 RSI14：${formatNumber(analysis.rsi14, 1)}
 MACD Histogram：${formatNumber(analysis.macdHist, 3)}
@@ -709,17 +777,17 @@ async function runAnalysis(event) {
   clearResults();
   try {
     if (!rawSymbol) throw new Error("請先輸入股票代號。");
-    setStatus(`讀取 ${symbol} 行情資料。若已設定 Cloudflare Worker，會優先套用最新報價。`);
-    const { bars, source, dataStatus, stockName } = await fetchBars(symbol, rawSymbol);
+    setStatus(`讀取 ${symbol} 行情資料。`);
+    const { bars, source, sourceLabel, dataStatus, stockName, priceNote } = await fetchBars(symbol, rawSymbol);
     setStatus("計算即時資料狀態與技術指標。");
-    const analysis = analyzeBars(symbol, bars, source, dataStatus, stockName);
+    const analysis = analyzeBars(symbol, bars, source, dataStatus, stockName, sourceLabel, priceNote);
     drawChart(analysis);
     updateUi(analysis);
     state.lastTimestamp = timestampName();
     state.lastReport = buildReport(analysis);
     downloadReportButton.disabled = false;
     downloadChartButton.disabled = false;
-    setStatus(`分析完成：${analysis.signal}。\n資料來源：${source}\n資料更新狀態：${dataStatus || "未取得資料更新狀態"}`);
+    setStatus(`分析完成：${analysis.signal}。\n最新價格：${formatNumber(analysis.current)}（${analysis.priceNote}）`);
   } catch (error) {
     clearResults();
     setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 請確認股票代號仍上市櫃、資料來源可用，或稍後重試。若該代號已下市或停止交易，系統不會顯示上一筆查詢結果。`);

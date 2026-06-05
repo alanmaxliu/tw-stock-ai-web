@@ -42,7 +42,7 @@
 
         <section class="notice">
           <h2>使用限制</h2>
-          <p>這是純前端工具，不會把查詢紀錄存到雲端。若已設定 Cloudflare Worker，會優先查詢即時報價；若未設定或查詢失敗，會改讀 GitHub Actions 產生的 JSON 與公開備援資料。此工具不做上漲機率、模型預測或保證獲利判斷，分析結果只供研究參考。</p>
+          <p>這是純前端工具，不會儲存查詢紀錄。系統會優先查詢即時行情；若即時行情暫時不可用，會改用預存資料或公開備援資料。此工具不做上漲機率、模型預測或保證獲利判斷，分析結果只供研究參考。</p>
         </section>
       </section>
 
@@ -59,14 +59,17 @@
           <article class="metric-card">
             <span>技術分數</span>
             <strong id="score-label">--</strong>
+            <small id="score-note">尚未分析</small>
           </article>
           <article class="metric-card">
             <span>最新價</span>
             <strong id="price-label">--</strong>
+            <small id="price-note">尚未分析</small>
           </article>
           <article class="metric-card">
             <span>資料來源</span>
             <strong id="source-label">--</strong>
+            <small id="source-note">--</small>
           </article>
         </div>
 

@@ -241,6 +241,20 @@ button:disabled {
   line-height: 1.18;
 }
 
+.metric-card small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+#source-label {
+  font-size: 18px;
+}
+
 .chart-wrap {
   margin-top: 18px;
   border: 1px solid var(--line);
