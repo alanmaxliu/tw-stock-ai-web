@@ -702,8 +702,8 @@ function timestampName() {
 
 async function runAnalysis(event) {
   event.preventDefault();
-  const rawSymbol = symbolInput.value;
-  const symbol = normalizeSymbol(symbolInput.value);
+  const rawSymbol = symbolInput.value.trim();
+  const symbol = normalizeSymbol(rawSymbol);
   state.lastSymbol = symbol;
   analyzeButton.disabled = true;
   clearResults();
