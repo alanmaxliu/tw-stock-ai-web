@@ -124,6 +124,21 @@ function parseWorkerDate(dateValue, timeValue) {
   return new Date();
 }
 
+function clearResults() {
+  $("#signal-label").textContent = "尚未分析";
+  $("#probability-label").textContent = "--";
+  $("#score-label").textContent = "--";
+  $("#price-label").textContent = "--";
+  $("#source-label").textContent = "--";
+  $("#analysis-text").textContent = "尚未產生分析。";
+  $("#action-text").textContent = "請先執行分析。";
+  state.lastReport = "";
+  state.lastTimestamp = "";
+  downloadReportButton.disabled = true;
+  downloadChartButton.disabled = true;
+  drawPlaceholderChart();
+}
+
 async function fetchWorkerQuote(code) {
   const url = workerQuoteUrl(code);
   if (!url) throw new Error("尚未設定 Cloudflare Worker URL。");
@@ -146,6 +161,33 @@ async function fetchWorkerQuote(code) {
     name: quote.name || "",
     priceType: quote.priceType || "最新參考價",
     fetchedAt: quote.fetchedAt || "",
+  };
+}
+
+async function fetchWorkerBars(code) {
+  const url = workerQuoteUrl(code);
+  if (!url) throw new Error("尚未設定 Cloudflare Worker URL。");
+  const response = await fetch(url, { cache: "no-store", signal: timeoutSignal(9000) });
+  if (!response.ok) throw new Error(`Worker HTTP ${response.status}`);
+  const payload = await response.json();
+  if (payload.status !== "OK" || !Array.isArray(payload.bars)) {
+    throw new Error(payload.error || "Worker 未回傳可用歷史資料。");
+  }
+  const bars = payload.bars.map((bar) => ({
+    date: new Date(`${bar.date}T00:00:00+08:00`),
+    open: Number(bar.open),
+    high: Number(bar.high),
+    low: Number(bar.low),
+    close: Number(bar.close),
+    volume: Number(bar.volume) || 0,
+  })).filter((bar) => [bar.open, bar.high, bar.low, bar.close].every(Number.isFinite));
+  if (bars.length < 60) throw new Error(`Worker 歷史資料不足，目前只有 ${bars.length} 筆。`);
+  const quote = payload.quote || {};
+  return {
+    bars,
+    source: payload.source || "Cloudflare Worker",
+    dataStatus: `已讀取 Worker 即時資料：${quote.name ? `${quote.symbol} ${quote.name}` : code}，價格類型：${quote.priceType || "最新參考價"}，快取 ${payload.cachedForSeconds || 0} 秒。`,
+    stockName: quote.name || "",
   };
 }
 
@@ -277,6 +319,11 @@ async function fetchTwseBars(code) {
 async function fetchBars(symbol, rawSymbol) {
   const errors = [];
   const code = plainTaiwanCode(rawSymbol);
+  try {
+    return await fetchWorkerBars(code);
+  } catch (error) {
+    errors.push(`Cloudflare Worker：${error.message}`);
+  }
   try {
     return await mergeWorkerQuote(await fetchStaticBars(code), code);
   } catch (error) {
@@ -458,7 +505,7 @@ function scoreAnalysis(metrics) {
   return { score, signal, action, reasons, risks };
 }
 
-function analyzeBars(symbol, bars, source, dataStatus) {
+function analyzeBars(symbol, bars, source, dataStatus, stockName = "") {
   const closes = bars.map((bar) => bar.close);
   const highs = bars.map((bar) => bar.high);
   const lows = bars.map((bar) => bar.low);
@@ -467,6 +514,7 @@ function analyzeBars(symbol, bars, source, dataStatus) {
   const b = bollinger(closes);
   const metrics = {
     symbol,
+    stockName,
     date: bars.at(-1).date,
     current,
     ma20: sma(closes, 20),
@@ -521,7 +569,8 @@ function drawChart(analysis) {
   ctx.fillRect(0, 0, width, height);
   ctx.fillStyle = "#17202a";
   ctx.font = "700 26px Microsoft JhengHei, sans-serif";
-  ctx.fillText(`${analysis.symbol} 技術分析`, margin.left, 36);
+  const title = analysis.stockName ? `${analysis.symbol} ${analysis.stockName} 技術分析` : `${analysis.symbol} 技術分析`;
+  ctx.fillText(title, margin.left, 36);
   ctx.font = "15px Microsoft JhengHei, sans-serif";
   ctx.fillStyle = "#64748b";
   ctx.fillText(`最新價 ${formatNumber(analysis.current)} ｜ 技術分數 ${analysis.score}/100 ｜ RSI14 ${formatNumber(analysis.rsi14, 1)}`, margin.left, 58);
@@ -568,7 +617,8 @@ function drawChart(analysis) {
 
 function buildReport(analysis) {
   const date = analysis.date.toLocaleDateString("zh-TW");
-  return `股票技術分析報告：${analysis.symbol}
+  const title = analysis.stockName ? `${analysis.symbol} ${analysis.stockName}` : analysis.symbol;
+  return `股票技術分析報告：${title}
 產出時間：${new Date().toLocaleString("zh-TW")}
 最新交易日：${date}
 
@@ -605,7 +655,7 @@ ${analysis.risks.map((item) => `- ${item}`).join("\n")}
 }
 
 function updateUi(analysis) {
-  $("#signal-label").textContent = analysis.signal;
+  $("#signal-label").textContent = analysis.stockName ? `${analysis.symbol} ${analysis.stockName}` : analysis.signal;
   $("#probability-label").textContent = analysis.date.toLocaleDateString("zh-TW");
   $("#score-label").textContent = `${analysis.score}/100`;
   $("#price-label").textContent = formatNumber(analysis.current);
@@ -649,14 +699,13 @@ async function runAnalysis(event) {
   const symbol = normalizeSymbol(symbolInput.value);
   state.lastSymbol = symbol;
   analyzeButton.disabled = true;
-  downloadReportButton.disabled = true;
-  downloadChartButton.disabled = true;
+  clearResults();
   try {
     if (!rawSymbol) throw new Error("請先輸入股票代號。");
     setStatus(`讀取 ${symbol} 行情資料。若已設定 Cloudflare Worker，會優先套用最新報價。`);
-    const { bars, source, dataStatus } = await fetchBars(symbol, rawSymbol);
+    const { bars, source, dataStatus, stockName } = await fetchBars(symbol, rawSymbol);
     setStatus("計算即時資料狀態與技術指標。");
-    const analysis = analyzeBars(symbol, bars, source, dataStatus);
+    const analysis = analyzeBars(symbol, bars, source, dataStatus, stockName);
     drawChart(analysis);
     updateUi(analysis);
     state.lastTimestamp = timestampName();
@@ -665,6 +714,7 @@ async function runAnalysis(event) {
     downloadChartButton.disabled = false;
     setStatus(`分析完成：${analysis.signal}。\n資料來源：${source}\n資料更新狀態：${dataStatus || "未取得資料更新狀態"}`);
   } catch (error) {
+    clearResults();
     setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 請確認股票代號正確；若要查非熱門 40 檔，建議先部署 Cloudflare Worker，或確認 Yahoo / TWSE 備援資料可用。`);
   } finally {
     analyzeButton.disabled = false;
@@ -690,8 +740,7 @@ downloadChartButton.addEventListener("click", () => {
   }, "image/png");
 });
 
-loadUniverse();
-requestAnimationFrame(() => {
+function drawPlaceholderChart() {
   drawChart({
     symbol: "待分析",
     bars: Array.from({ length: 120 }, (_, index) => ({
@@ -708,4 +757,7 @@ requestAnimationFrame(() => {
     support60: 88,
     resistance60: 96,
   });
-});
+}
+
+loadUniverse();
+requestAnimationFrame(drawPlaceholderChart);
