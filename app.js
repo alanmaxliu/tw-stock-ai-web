@@ -181,6 +181,7 @@ function parseWorkerDate(dateValue, timeValue) {
 }
 
 function clearResults() {
+  $("#target-label").textContent = "尚未分析";
   $("#signal-label").textContent = "尚未分析";
   $("#probability-label").textContent = "--";
   $("#score-label").textContent = "--";
@@ -727,7 +728,8 @@ ${analysis.risks.map((item) => `- ${item}`).join("\n")}
 }
 
 function updateUi(analysis) {
-  $("#signal-label").textContent = analysis.stockName ? `${analysis.symbol} ${analysis.stockName}` : analysis.signal;
+  $("#target-label").textContent = analysis.stockName ? `${analysis.symbol} ${analysis.stockName}` : analysis.symbol;
+  $("#signal-label").textContent = analysis.signal;
   $("#probability-label").textContent = formatTaiwanDate(analysis.date);
   $("#score-label").textContent = `${analysis.score}/100`;
   $("#score-note").textContent = scoreNote(analysis.score);

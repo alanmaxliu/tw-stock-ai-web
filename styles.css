@@ -308,7 +308,13 @@ canvas {
 
 @media (min-width: 981px) {
   .summary-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .summary-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 
