@@ -17,7 +17,7 @@ const downloadChartButton = $("#download-chart");
 const stockOptions = $("#stock-options");
 
 const universeUrl = "./data/universe.json";
-const workerApiBase = "";
+const workerApiBase = "https://tw-stock-quote-api.alanmaxliu-stock.workers.dev";
 
 function normalizeSymbol(rawSymbol) {
   const value = rawSymbol.trim().toUpperCase();
