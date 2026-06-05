@@ -17,14 +17,13 @@
         </div>
 
         <form id="analysis-form" class="analysis-form">
-          <label for="symbol-input">熱門標的</label>
+          <label for="symbol-input">股票代號</label>
           <div class="input-row">
-            <select id="symbol-input" name="symbol">
-              <option value="">載入 40 檔熱門清單中</option>
-            </select>
+            <input id="symbol-input" name="symbol" list="stock-options" inputmode="numeric" placeholder="輸入台股代號，例如 0050" />
+            <datalist id="stock-options"></datalist>
             <button id="analyze-button" type="submit">開始分析</button>
           </div>
-          <p class="field-hint">清單由 GitHub Actions 依成交金額產生：ETF 前 20、個股前 20。一次分析一個標的。</p>
+          <p class="field-hint">可輸入任意台股代號；熱門提示由 GitHub Actions 依成交金額產生：ETF 前 20、個股前 20。</p>
         </form>
 
         <div class="status-box" id="status-box">等待輸入股票代號。</div>
@@ -36,7 +35,7 @@
 
         <section class="notice">
           <h2>使用限制</h2>
-          <p>這是純前端工具，不會把查詢紀錄存到雲端。盤中資料優先使用 GitHub Actions 定時產生的 JSON；若 JSON 不存在，前端會嘗試外部公開資料源，但速度與可用性會受瀏覽器限制影響。此工具不做上漲機率、模型預測或保證獲利判斷，分析結果只供研究參考。</p>
+          <p>這是純前端工具，不會把查詢紀錄存到雲端。若已設定 Cloudflare Worker，會優先查詢即時報價；若未設定或查詢失敗，會改讀 GitHub Actions 產生的 JSON 與公開備援資料。此工具不做上漲機率、模型預測或保證獲利判斷，分析結果只供研究參考。</p>
         </section>
       </section>
 

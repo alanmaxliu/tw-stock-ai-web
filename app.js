@@ -14,8 +14,10 @@ const canvas = $("#price-chart");
 const ctx = canvas.getContext("2d");
 const downloadReportButton = $("#download-report");
 const downloadChartButton = $("#download-chart");
+const stockOptions = $("#stock-options");
 
 const universeUrl = "./data/universe.json";
+const workerApiBase = "";
 
 function normalizeSymbol(rawSymbol) {
   const value = rawSymbol.trim().toUpperCase();
@@ -46,19 +48,20 @@ async function loadUniverse() {
     const payload = await response.json();
     const symbols = Array.isArray(payload.symbols) ? payload.symbols : [];
     if (symbols.length === 0) throw new Error("熱門清單是空的。");
-    symbolInput.innerHTML = "";
+    stockOptions.innerHTML = "";
     for (const item of symbols) {
       const option = document.createElement("option");
       option.value = item.symbol;
-      option.textContent = symbolLabel(item);
+      option.label = symbolLabel(item);
       option.dataset.category = item.category || "";
-      symbolInput.appendChild(option);
+      stockOptions.appendChild(option);
     }
     analyzeButton.disabled = false;
-    setStatus(`已載入 ${symbols.length} 檔熱門清單。更新時間：${payload.generatedAt || "--"}`);
+    setStatus(`已載入 ${symbols.length} 檔熱門提示。可直接輸入任意台股代號。更新時間：${payload.generatedAt || "--"}`);
   } catch (error) {
-    symbolInput.innerHTML = '<option value="">熱門清單載入失敗</option>';
-    setStatus(`Status: FAILED\nRoot Cause: 無法載入 data/universe.json：${error.message}\nSuggested Fix: 確認 GitHub Actions 已成功產生 data/universe.json 與 data/stocks/*.json。`);
+    stockOptions.innerHTML = "";
+    analyzeButton.disabled = false;
+    setStatus(`Status: WARN\nRoot Cause: 無法載入熱門提示 data/universe.json：${error.message}\nSuggested Fix: 仍可手動輸入股票代號；若要恢復熱門提示，確認 GitHub Actions 已成功產生 data/universe.json。`);
   }
 }
 
@@ -83,6 +86,12 @@ function twseMonthUrl(code, date) {
   return `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${year}${month}01&stockNo=${code}`;
 }
 
+function workerQuoteUrl(code) {
+  if (!workerApiBase) return "";
+  const base = workerApiBase.replace(/\/$/, "");
+  return `${base}?symbol=${encodeURIComponent(code)}`;
+}
+
 function timeoutSignal(milliseconds) {
   const controller = new AbortController();
   setTimeout(() => controller.abort(), milliseconds);
@@ -102,6 +111,42 @@ function parseTwseDate(value) {
   const parts = value.split("/").map((part) => Number(part));
   if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) return null;
   return new Date(parts[0] + 1911, parts[1] - 1, parts[2]);
+}
+
+function parseWorkerDate(dateValue, timeValue) {
+  if (/^\d{8}$/.test(dateValue || "")) {
+    const year = Number(dateValue.slice(0, 4));
+    const month = Number(dateValue.slice(4, 6));
+    const day = Number(dateValue.slice(6, 8));
+    const time = /^\d{2}:\d{2}:\d{2}$/.test(timeValue || "") ? timeValue : "00:00:00";
+    return new Date(`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${time}+08:00`);
+  }
+  return new Date();
+}
+
+async function fetchWorkerQuote(code) {
+  const url = workerQuoteUrl(code);
+  if (!url) throw new Error("尚未設定 Cloudflare Worker URL。");
+  const response = await fetch(url, { cache: "no-store", signal: timeoutSignal(6000) });
+  if (!response.ok) throw new Error(`Worker HTTP ${response.status}`);
+  const payload = await response.json();
+  if (payload.status !== "OK" || !payload.quote) {
+    throw new Error(payload.error || "Worker 未回傳可用報價。");
+  }
+  const quote = payload.quote;
+  const price = Number(quote.price);
+  if (!Number.isFinite(price)) throw new Error("Worker 報價格式不完整。");
+  return {
+    date: parseWorkerDate(quote.date, quote.time),
+    open: Number.isFinite(Number(quote.open)) ? Number(quote.open) : price,
+    high: Number.isFinite(Number(quote.high)) ? Number(quote.high) : price,
+    low: Number.isFinite(Number(quote.low)) ? Number(quote.low) : price,
+    close: price,
+    volume: Number.isFinite(Number(quote.volume)) ? Number(quote.volume) : 0,
+    name: quote.name || "",
+    priceType: quote.priceType || "最新參考價",
+    fetchedAt: quote.fetchedAt || "",
+  };
 }
 
 async function fetchYahooBars(symbol) {
@@ -135,6 +180,32 @@ async function fetchYahooBars(symbol) {
     source: "Yahoo Finance",
     dataStatus: "使用外部備援資料。此路徑不是 GitHub Actions 盤中快照，資料可能延遲。",
   };
+}
+
+async function mergeWorkerQuote(result, code) {
+  if (!code || !workerApiBase) return result;
+  try {
+    const quote = await fetchWorkerQuote(code);
+    const bars = [...result.bars];
+    const latest = bars.at(-1);
+    const quoteDay = quote.date.toISOString().slice(0, 10);
+    const latestDay = latest.date.toISOString().slice(0, 10);
+    if (quoteDay === latestDay) {
+      bars[bars.length - 1] = { ...latest, ...quote };
+    } else if (quote.date > latest.date) {
+      bars.push(quote);
+    }
+    return {
+      bars: bars.slice(-260),
+      source: `${result.source} + Cloudflare Worker 即時報價`,
+      dataStatus: `已套用 Worker 報價：${quoteDay} ${quote.date.toLocaleTimeString("zh-TW")}，價格類型：${quote.priceType}。`,
+    };
+  } catch (error) {
+    return {
+      ...result,
+      dataStatus: `${result.dataStatus || "已讀取歷史資料。"} Worker 即時報價未套用：${error.message}`,
+    };
+  }
 }
 
 async function fetchStaticBars(code) {
@@ -207,17 +278,17 @@ async function fetchBars(symbol, rawSymbol) {
   const errors = [];
   const code = plainTaiwanCode(rawSymbol);
   try {
-    return await fetchStaticBars(code);
+    return await mergeWorkerQuote(await fetchStaticBars(code), code);
   } catch (error) {
     errors.push(`GitHub 靜態資料：${error.message}`);
   }
   try {
-    return await fetchYahooBars(symbol);
+    return await mergeWorkerQuote(await fetchYahooBars(symbol), code);
   } catch (error) {
     errors.push(`Yahoo Finance：${error.message}`);
   }
   try {
-    return await fetchTwseBars(code);
+    return await mergeWorkerQuote(await fetchTwseBars(code), code);
   } catch (error) {
     errors.push(`TWSE：${error.message}`);
   }
@@ -581,8 +652,8 @@ async function runAnalysis(event) {
   downloadReportButton.disabled = true;
   downloadChartButton.disabled = true;
   try {
-    if (!rawSymbol) throw new Error("請先從下拉選單選擇標的。");
-    setStatus(`讀取 ${symbol} 行情資料。系統會優先讀取 GitHub Actions 產生的熱門 40 檔靜態 JSON。`);
+    if (!rawSymbol) throw new Error("請先輸入股票代號。");
+    setStatus(`讀取 ${symbol} 行情資料。若已設定 Cloudflare Worker，會優先套用最新報價。`);
     const { bars, source, dataStatus } = await fetchBars(symbol, rawSymbol);
     setStatus("計算即時資料狀態與技術指標。");
     const analysis = analyzeBars(symbol, bars, source, dataStatus);
@@ -594,7 +665,7 @@ async function runAnalysis(event) {
     downloadChartButton.disabled = false;
     setStatus(`分析完成：${analysis.signal}。\n資料來源：${source}\n資料更新狀態：${dataStatus || "未取得資料更新狀態"}`);
   } catch (error) {
-    setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 請確認 GitHub Actions 已成功產生 data/universe.json 與該股票的 data/stocks/{代號}.json。`);
+    setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 請確認股票代號正確；若要查非熱門 40 檔，建議先部署 Cloudflare Worker，或確認 Yahoo / TWSE 備援資料可用。`);
   } finally {
     analyzeButton.disabled = false;
   }

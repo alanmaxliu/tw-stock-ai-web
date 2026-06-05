@@ -1,0 +1,6 @@
+name = "tw-stock-quote-api"
+main = "stock-worker.js"
+compatibility_date = "2026-06-05"
+
+[observability]
+enabled = true
