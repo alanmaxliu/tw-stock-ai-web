@@ -38,7 +38,7 @@ Worker 不需要 GitHub Token，也不需要把私密金鑰放進前端。
 
 GitHub Actions 設定必須放在 `.github/workflows/update-stock-data.yml`，`.github` 不能改名。
 
-盤中排程設定為台灣時間週一到週五 09:03 到 13:33 約每 10 分鐘更新一次，14:07 收盤後再更新一次。Actions 產生的是靜態 JSON，不是秒級即時串流；實際執行時間會受 GitHub Actions 排程佇列影響。
+GitHub Actions 低頻保留為備援資料與熱門提示來源，設定為台灣時間週一到週五 09:07、12:37、14:07 各更新一次。即時單股查詢主要由 Cloudflare Worker 處理；Actions 產生的是靜態 JSON，不是秒級即時串流。
 
 ## 效能
 
