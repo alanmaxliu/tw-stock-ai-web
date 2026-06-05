@@ -15,6 +15,7 @@ const ctx = canvas.getContext("2d");
 const downloadReportButton = $("#download-report");
 const downloadChartButton = $("#download-chart");
 const stockOptions = $("#stock-options");
+const quickSymbolSelect = $("#quick-symbol-select");
 
 const universeUrl = "./data/universe.json";
 const workerApiBase = "https://tw-stock-quote-api.alanmaxliu-stock.workers.dev";
@@ -40,6 +41,14 @@ function symbolLabel(item) {
   return `${category} #${item.rank}｜${item.symbol} ${item.name}${latest}`;
 }
 
+function resetQuickSelect() {
+  quickSymbolSelect.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "快速選擇熱門 40 檔";
+  quickSymbolSelect.appendChild(placeholder);
+}
+
 async function loadUniverse() {
   analyzeButton.disabled = true;
   try {
@@ -49,17 +58,24 @@ async function loadUniverse() {
     const symbols = Array.isArray(payload.symbols) ? payload.symbols : [];
     if (symbols.length === 0) throw new Error("熱門清單是空的。");
     stockOptions.innerHTML = "";
+    resetQuickSelect();
     for (const item of symbols) {
       const option = document.createElement("option");
       option.value = item.symbol;
       option.label = symbolLabel(item);
       option.dataset.category = item.category || "";
       stockOptions.appendChild(option);
+
+      const quickOption = document.createElement("option");
+      quickOption.value = item.symbol;
+      quickOption.textContent = symbolLabel(item);
+      quickSymbolSelect.appendChild(quickOption);
     }
     analyzeButton.disabled = false;
-    setStatus(`已載入 ${symbols.length} 檔熱門提示。可直接輸入任意台股代號。更新時間：${payload.generatedAt || "--"}`);
+    setStatus(`已載入 ${symbols.length} 檔熱門提示。可直接輸入任意台股代號，或用下拉選單快速帶入。更新時間：${payload.generatedAt || "--"}`);
   } catch (error) {
     stockOptions.innerHTML = "";
+    resetQuickSelect();
     analyzeButton.disabled = false;
     setStatus(`Status: WARN\nRoot Cause: 無法載入熱門提示 data/universe.json：${error.message}\nSuggested Fix: 仍可手動輸入股票代號；若要恢復熱門提示，確認 GitHub Actions 已成功產生 data/universe.json。`);
   }
@@ -715,13 +731,19 @@ async function runAnalysis(event) {
     setStatus(`分析完成：${analysis.signal}。\n資料來源：${source}\n資料更新狀態：${dataStatus || "未取得資料更新狀態"}`);
   } catch (error) {
     clearResults();
-    setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 請確認股票代號正確；若要查非熱門 40 檔，建議先部署 Cloudflare Worker，或確認 Yahoo / TWSE 備援資料可用。`);
+    setStatus(`Status: FAILED\nRoot Cause: ${error.message}\nSuggested Fix: 請確認股票代號仍上市櫃、資料來源可用，或稍後重試。若該代號已下市或停止交易，系統不會顯示上一筆查詢結果。`);
   } finally {
     analyzeButton.disabled = false;
   }
 }
 
 form.addEventListener("submit", runAnalysis);
+
+quickSymbolSelect.addEventListener("change", () => {
+  if (!quickSymbolSelect.value) return;
+  symbolInput.value = quickSymbolSelect.value;
+  symbolInput.focus();
+});
 
 downloadReportButton.addEventListener("click", () => {
   downloadBlob(`${state.lastSymbol}_${state.lastTimestamp}_analysis.md`, "text/markdown;charset=utf-8", state.lastReport);
@@ -759,5 +781,6 @@ function drawPlaceholderChart() {
   });
 }
 
+resetQuickSelect();
 loadUniverse();
 requestAnimationFrame(drawPlaceholderChart);

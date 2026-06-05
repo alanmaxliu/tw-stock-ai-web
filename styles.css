@@ -134,7 +134,7 @@ h2 {
 
 .input-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, 0.9fr) auto;
   gap: 10px;
 }
 
