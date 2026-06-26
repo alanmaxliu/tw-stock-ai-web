@@ -1,16 +1,8 @@
 {
   "symbol": "3189",
   "source": "Yahoo Finance history + TWSE MIS GitHub Actions snapshot",
-  "generatedAt": "2026-06-25T17:37:55+08:00",
+  "generatedAt": "2026-06-26T13:19:05+08:00",
   "bars": [
-    {
-      "date": "2025-06-25",
-      "open": 85.5999984741211,
-      "high": 87.19999694824219,
-      "low": 85.4000015258789,
-      "close": 85.5,
-      "volume": 6171020.0
-    },
     {
       "date": "2025-06-26",
       "open": 85.5,
@@ -1945,7 +1937,15 @@
       "high": 812.0,
       "low": 750.0,
       "close": 812.0,
-      "volume": 42864.0
+      "volume": 42967994.0
+    },
+    {
+      "date": "2026-06-26",
+      "open": 828.0,
+      "high": 893.0,
+      "low": 796.0,
+      "close": 797.5,
+      "volume": 58773.0
     }
   ]
 }
