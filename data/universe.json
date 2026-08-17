@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-17T13:10:34+08:00",
+  "generatedAt": "2026-08-17T15:10:58+08:00",
   "rankBy": "tradeValue",
   "description": "Top 20 listed ETFs and top 20 listed stocks by TWSE trade value.",
   "symbols": [
@@ -11,9 +11,9 @@
       "tradeValue": 8764204057.0,
       "snapshotClose": 106.4,
       "rank": 1,
-      "latestClose": 106.725,
+      "latestClose": 106.45,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:18+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00881",
@@ -23,9 +23,9 @@
       "tradeValue": 5014483546.0,
       "snapshotClose": 54.8,
       "rank": 2,
-      "latestClose": 55.125,
+      "latestClose": 55.15,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00878",
@@ -35,9 +35,9 @@
       "tradeValue": 2725157353.0,
       "snapshotClose": 33.87,
       "rank": 3,
-      "latestClose": 33.695,
+      "latestClose": 33.75,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:18+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "0056",
@@ -47,9 +47,9 @@
       "tradeValue": 2639082749.0,
       "snapshotClose": 53.4,
       "rank": 4,
-      "latestClose": 53.025,
+      "latestClose": 53.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:18+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00919",
@@ -59,9 +59,9 @@
       "tradeValue": 2017592787.0,
       "snapshotClose": 30.57,
       "rank": 5,
-      "latestClose": 30.369999999999997,
+      "latestClose": 30.34,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:18+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "0052",
@@ -71,9 +71,9 @@
       "tradeValue": 1753209261.0,
       "snapshotClose": 61.95,
       "rank": 6,
-      "latestClose": 61.975,
+      "latestClose": 61.8,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00891",
@@ -83,9 +83,9 @@
       "tradeValue": 1330043840.0,
       "snapshotClose": 36.38,
       "rank": 8,
-      "latestClose": 36.295,
+      "latestClose": 36.23,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00929",
@@ -95,9 +95,9 @@
       "tradeValue": 1149928446.0,
       "snapshotClose": 29.44,
       "rank": 9,
-      "latestClose": 29.235,
+      "latestClose": 29.2,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00923",
@@ -107,9 +107,9 @@
       "tradeValue": 857572229.0,
       "snapshotClose": 42.88,
       "rank": 10,
-      "latestClose": 42.935,
+      "latestClose": 42.89,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:18+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00927",
@@ -119,9 +119,9 @@
       "tradeValue": 734358891.0,
       "snapshotClose": 36.65,
       "rank": 11,
-      "latestClose": 36.510000000000005,
+      "latestClose": 36.4,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:18+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00961",
@@ -131,9 +131,9 @@
       "tradeValue": 644754874.0,
       "snapshotClose": 13.44,
       "rank": 12,
-      "latestClose": 13.265,
+      "latestClose": 13.3,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:18+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00662",
@@ -143,9 +143,9 @@
       "tradeValue": 629830419.0,
       "snapshotClose": 123.3,
       "rank": 13,
-      "latestClose": 123.375,
+      "latestClose": 123.3,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:18+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00935",
@@ -155,9 +155,9 @@
       "tradeValue": 621014601.0,
       "snapshotClose": 58.65,
       "rank": 14,
-      "latestClose": 58.525,
+      "latestClose": 58.35,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:18+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00918",
@@ -167,9 +167,9 @@
       "tradeValue": 493447496.0,
       "snapshotClose": 34.15,
       "rank": 15,
-      "latestClose": 34.075,
+      "latestClose": 34.09,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00713",
@@ -179,9 +179,9 @@
       "tradeValue": 484512955.0,
       "snapshotClose": 60.85,
       "rank": 16,
-      "latestClose": 60.525,
+      "latestClose": 60.65,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:18+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00947",
@@ -191,9 +191,9 @@
       "tradeValue": 479076029.0,
       "snapshotClose": 38.0,
       "rank": 17,
-      "latestClose": 37.775000000000006,
+      "latestClose": 37.74,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:18+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00646",
@@ -203,9 +203,9 @@
       "tradeValue": 457058099.0,
       "snapshotClose": 78.6,
       "rank": 18,
-      "latestClose": 78.17500000000001,
+      "latestClose": 78.2,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:18+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00830",
@@ -215,9 +215,9 @@
       "tradeValue": 430358948.0,
       "snapshotClose": 87.7,
       "rank": 19,
-      "latestClose": 88.17500000000001,
+      "latestClose": 88.3,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:18+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "006208",
@@ -227,9 +227,9 @@
       "tradeValue": 367782193.0,
       "snapshotClose": 243.45,
       "rank": 20,
-      "latestClose": 244.35,
+      "latestClose": 244.05,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:18+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "00735",
@@ -239,9 +239,9 @@
       "tradeValue": 356016784.0,
       "snapshotClose": 103.1,
       "rank": 21,
-      "latestClose": 104.15,
+      "latestClose": 104.05,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "2408",
@@ -251,9 +251,9 @@
       "tradeValue": 54418832121.0,
       "snapshotClose": 512.0,
       "rank": 1,
-      "latestClose": 522.5,
+      "latestClose": 524.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "2330",
@@ -263,9 +263,9 @@
       "tradeValue": 51159731253.0,
       "snapshotClose": 2395.0,
       "rank": 2,
-      "latestClose": 2407.5,
+      "latestClose": 2400.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "2327",
@@ -275,9 +275,9 @@
       "tradeValue": 47061773659.0,
       "snapshotClose": 622.0,
       "rank": 3,
-      "latestClose": 614.5,
+      "latestClose": 608.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "2454",
@@ -287,9 +287,9 @@
       "tradeValue": 45791288165.0,
       "snapshotClose": 4210.0,
       "rank": 4,
-      "latestClose": 4072.5,
+      "latestClose": 4050.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "2344",
@@ -299,9 +299,9 @@
       "tradeValue": 44751045772.0,
       "snapshotClose": 183.5,
       "rank": 5,
-      "latestClose": 183.25,
+      "latestClose": 181.5,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "6770",
@@ -311,9 +311,9 @@
       "tradeValue": 41709109800.0,
       "snapshotClose": 78.4,
       "rank": 6,
-      "latestClose": 74.9,
+      "latestClose": 74.6,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "1303",
@@ -323,9 +323,9 @@
       "tradeValue": 31684015355.0,
       "snapshotClose": 207.5,
       "rank": 7,
-      "latestClose": 201.75,
+      "latestClose": 200.5,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "4958",
@@ -335,9 +335,9 @@
       "tradeValue": 31237060778.0,
       "snapshotClose": 489.5,
       "rank": 8,
-      "latestClose": 503.5,
+      "latestClose": 503.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "8046",
@@ -347,9 +347,9 @@
       "tradeValue": 30116152345.0,
       "snapshotClose": 1305.0,
       "rank": 9,
-      "latestClose": 1307.5,
+      "latestClose": 1295.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "2308",
@@ -359,9 +359,9 @@
       "tradeValue": 26791405135.0,
       "snapshotClose": 1885.0,
       "rank": 10,
-      "latestClose": 1897.5,
+      "latestClose": 1885.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "3017",
@@ -371,9 +371,9 @@
       "tradeValue": 23876896640.0,
       "snapshotClose": 3235.0,
       "rank": 11,
-      "latestClose": 3165.0,
+      "latestClose": 3150.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "3231",
@@ -383,9 +383,9 @@
       "tradeValue": 18829679790.0,
       "snapshotClose": 193.5,
       "rank": 12,
-      "latestClose": 186.25,
+      "latestClose": 187.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "2383",
@@ -395,9 +395,9 @@
       "tradeValue": 18016995640.0,
       "snapshotClose": 6165.0,
       "rank": 13,
-      "latestClose": 6362.5,
+      "latestClose": 6350.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "2324",
@@ -407,9 +407,9 @@
       "tradeValue": 17309022890.0,
       "snapshotClose": 43.2,
       "rank": 14,
-      "latestClose": 41.725,
+      "latestClose": 41.65,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "6669",
@@ -421,7 +421,7 @@
       "rank": 15,
       "latestClose": 6620.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "2357",
@@ -431,9 +431,9 @@
       "tradeValue": 16191877732.0,
       "snapshotClose": 996.0,
       "rank": 16,
-      "latestClose": 932.5,
+      "latestClose": 938.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "3661",
@@ -443,9 +443,9 @@
       "tradeValue": 15615818970.0,
       "snapshotClose": 4210.0,
       "rank": 17,
-      "latestClose": 4075.0,
+      "latestClose": 4060.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "2492",
@@ -455,9 +455,9 @@
       "tradeValue": 15366596985.0,
       "snapshotClose": 302.5,
       "rank": 18,
-      "latestClose": 294.25,
+      "latestClose": 291.5,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "3443",
@@ -467,9 +467,9 @@
       "tradeValue": 15029846210.0,
       "snapshotClose": 5465.0,
       "rank": 19,
-      "latestClose": 5840.0,
+      "latestClose": 5850.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     },
     {
       "symbol": "8039",
@@ -479,9 +479,9 @@
       "tradeValue": 14891458585.0,
       "snapshotClose": 272.5,
       "rank": 20,
-      "latestClose": 254.25,
+      "latestClose": 259.0,
       "latestDate": "2026-08-17",
-      "updatedAt": "2026-08-17T13:10:19+08:00"
+      "updatedAt": "2026-08-17T15:10:21+08:00"
     }
   ]
 }
