@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T15:39:21+08:00",
+  "generatedAt": "2026-10-13T20:04:34+08:00",
   "rankBy": "tradeValue",
   "description": "Top 20 listed ETFs and top 20 listed stocks by TWSE trade value.",
   "symbols": [
@@ -13,7 +13,7 @@
       "rank": 1,
       "latestClose": 112.4,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "00919",
@@ -25,7 +25,7 @@
       "rank": 2,
       "latestClose": 32.4,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "00927",
@@ -37,7 +37,7 @@
       "rank": 3,
       "latestClose": 39.63,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "0056",
@@ -49,7 +49,7 @@
       "rank": 4,
       "latestClose": 58.55,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "009816",
@@ -61,7 +61,7 @@
       "rank": 5,
       "latestClose": 16.61,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "0052",
@@ -73,7 +73,7 @@
       "rank": 6,
       "latestClose": 65.4,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "00830",
@@ -85,7 +85,7 @@
       "rank": 7,
       "latestClose": 86.65,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "00918",
@@ -97,7 +97,7 @@
       "rank": 8,
       "latestClose": 34.36,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "006208",
@@ -109,7 +109,7 @@
       "rank": 9,
       "latestClose": 257.85,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "00881",
@@ -121,7 +121,7 @@
       "rank": 10,
       "latestClose": 52.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "00929",
@@ -133,7 +133,7 @@
       "rank": 11,
       "latestClose": 29.86,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "00878",
@@ -145,7 +145,7 @@
       "rank": 12,
       "latestClose": 35.34,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "00961",
@@ -157,7 +157,7 @@
       "rank": 13,
       "latestClose": 13.37,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "00947",
@@ -169,7 +169,7 @@
       "rank": 14,
       "latestClose": 38.69,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "00935",
@@ -181,7 +181,7 @@
       "rank": 15,
       "latestClose": 60.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "00662",
@@ -193,7 +193,7 @@
       "rank": 17,
       "latestClose": 125.6,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "00891",
@@ -205,7 +205,7 @@
       "rank": 18,
       "latestClose": 37.23,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "00922",
@@ -217,7 +217,7 @@
       "rank": 20,
       "latestClose": 43.84,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "00646",
@@ -229,7 +229,7 @@
       "rank": 21,
       "latestClose": 78.65,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "00712",
@@ -241,7 +241,7 @@
       "rank": 22,
       "latestClose": 7.02,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "2330",
@@ -253,7 +253,7 @@
       "rank": 1,
       "latestClose": 2490.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "3008",
@@ -265,7 +265,7 @@
       "rank": 2,
       "latestClose": 7275.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "2454",
@@ -277,7 +277,7 @@
       "rank": 3,
       "latestClose": 4525.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "2308",
@@ -289,7 +289,7 @@
       "rank": 4,
       "latestClose": 1775.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "1303",
@@ -301,7 +301,7 @@
       "rank": 5,
       "latestClose": 319.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "2327",
@@ -313,7 +313,7 @@
       "rank": 6,
       "latestClose": 599.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "3661",
@@ -325,7 +325,7 @@
       "rank": 7,
       "latestClose": 4055.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "2408",
@@ -337,7 +337,7 @@
       "rank": 8,
       "latestClose": 488.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "1301",
@@ -349,7 +349,7 @@
       "rank": 9,
       "latestClose": 80.9,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "3443",
@@ -361,7 +361,7 @@
       "rank": 10,
       "latestClose": 8095.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "2303",
@@ -373,7 +373,7 @@
       "rank": 11,
       "latestClose": 141.5,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "2383",
@@ -385,7 +385,7 @@
       "rank": 12,
       "latestClose": 5545.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "2317",
@@ -397,7 +397,7 @@
       "rank": 13,
       "latestClose": 240.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "2313",
@@ -409,7 +409,7 @@
       "rank": 14,
       "latestClose": 243.5,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "2368",
@@ -421,7 +421,7 @@
       "rank": 15,
       "latestClose": 1170.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "4958",
@@ -433,7 +433,7 @@
       "rank": 16,
       "latestClose": 552.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "3711",
@@ -445,7 +445,7 @@
       "rank": 17,
       "latestClose": 740.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "7769",
@@ -457,7 +457,7 @@
       "rank": 18,
       "latestClose": 6070.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "3037",
@@ -469,7 +469,7 @@
       "rank": 19,
       "latestClose": 1180.0,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     },
     {
       "symbol": "2409",
@@ -481,7 +481,7 @@
       "rank": 20,
       "latestClose": 34.15,
       "latestDate": "2026-10-13",
-      "updatedAt": "2026-10-13T15:39:08+08:00"
+      "updatedAt": "2026-10-13T20:04:17+08:00"
     }
   ]
 }
